@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Tab</title>
+    <link rel="icon" id="favicon-link" href="favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+
+<body>
+    <dialog id="popupModal">
+        <div class="dialog-content">
+            <h2>NOTICE OF UNAUTHORIZED COMMERCIALIZATION</h2>
+            <p>If you paid any amount of money to access this site, demand an immediate refund. This includes if you purchased a link from someone. Access is entirely free. Freedom should never be up for sale.</p>
+            <p>By clicking "I Agree" you willingly accept that I am NOT responsible for any trouble</p>
+            <form method="dialog">
+                <button class="btn-close">I Agree</button>
+            </form>
+        </div>
+    </dialog>
+
+    <audio id="Menu1" src="audio/menu.mp3"></audio>
+    <audio id="Menu2" src="audio/menu2.mp3"></audio>
+    <audio id="Menu3" src="audio/menu3.mp3"></audio>
+    <audio id="clickSound" src="audio/click.mp3"></audio>
+
+    <div id="menu-view" class="view">
+        <div class="title-container">
+            <h1 style="margin-top: 60px;">
+                <img src="images/GEEKS-BUNKER.png" alt="Geeks Bunker">
+            </h1>
+            <h2 class="splash-text">Loading...</h2>
+        </div>
+        
+        <p>
+            <a href="#g8mes" id="to-g8mes-btn" class="custom-button">Find G8ming Websites Here!</a>
+            <a href="#pr8xies" id="to-pr8xies-btn" class="custom-button">Play G8mes Here!</a>
+            <a href="#credits" id="to-credits-btn" class="custom-button">Credits</a>
+            <a href="#options" id="to-options-btn" class="custom-button">Options</a>
+        </p>
+    </div>
+
+    <div id="g8mes-view" class="view hidden">
+        <div class="title-container">
+            <h1 style="margin-top: 60px;"></h1>
+            <h1><img src="images/GEEKS-BUNKER.png"></h1>
+            <h2 class="splash-text">Loading...</h2>
+        </div>
+
+        <div id="mc-tabbed-container" class="mc-tab-bg-create">
+            <div class="tab-click-regions">
+                <button id="tab-toggle-btn" class="tab-trigger"></button>
+            </div>
+
+            <div id="tab-content-create" class="tab-content-pane">
+                <div class="mc-panel-header">Save Custom Slot</div>
+                <div class="mc-input-area">
+                    <input type="text" id="custom-link-name" class="mc-textbox" placeholder="Enter Slot Name...">
+                    <input type="text" id="custom-link-url" class="mc-textbox" placeholder="Enter Website URL...">
+                    <button id="save-custom-link-btn" class="custom-button mc-small-btn">Save Slot</button>
+                </div>
+            </div>
+
+            <div id="tab-content-load" class="tab-content-pane" style="display: none;">
+                <div class="mc-panel-header">Select Built-In Link</div>
+                <div id="built-in-links-grid" class="mc-grid-layout">
+                    <a href="https://google.com" class="custom-button target-portal-link">Test 1</a>
+                    <a href="https://bing.com" class="custom-button target-portal-link">Test 2</a>
+                    <a href="https://duckduckgo.com" class="custom-button target-portal-link">Test 3</a>
+                    <a href="https://wikipedia.org" class="custom-button target-portal-link">Test 4</a>
+                </div>
+                
+                <div class="mc-divider"></div>
+                
+                <div class="mc-panel-header">Saved Custom Slots</div>
+                <div id="user-links-grid" class="mc-grid-layout">
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: center; width: 100%; margin-top: -90px; position: relative; z-index: 10;">
+            <a href="#" id="to-menu-from-links" class="custom-button" style="width: max-content; margin: 0 auto;">Back to Menu</a>
+        </div>
+    </div>
+
+    <div id="credits-view" class="view hidden">
+        <div class="title-container">
+            <h1 style="margin-top: 60px;"><img src="images/GEEKS-BUNKER.png" alt="Geeks Bunker"></h1>
+            <h2 class="splash-text">Loading...</h2>
+        </div>
+
+        <div style="text-align: center; margin: 40px auto; width: 80%; background-color: rgba(0,0,0,0.6); border: 3px solid #3c3c3c; padding: 20px; border-radius: 4px;">
+            <h3 style="font-family: 'Mojangles'; color: white; font-size: x-large;">Credits & Contributor Details</h3>
+            <p style="color: #aaaaaa;">Created by 3L Enterprises AB.</p>
+            <p style="color: #aaaaaa;">Music by C418.</p>
+            <p style="color: #aaaaaa;">Background created by 4J Studios.</p>
+            <p style="color: #aaaaaa;">Website Helpers: Plentify, Zaka.</p>
+            <p style="color: #aaaaaa;">Link contributers: Bird Cat, Offensive Asian.</p>
+        </div>
+
+        <p style="margin-top: 40px;">
+            <a href="#menu" id="to-menu-from-credits" class="custom-button">Back to Menu</a>
+        </p>
+    </div>
+
+    <div id="pr8xies-view" class="view hidden">
+        <div class="title-container">
+            <h1 style="margin-top: 60px;"></h1>
+            <h1><img src="images/GEEKS-BUNKER.png"></h1>
+            <h2 class="splash-text">Loading...</h2>
+        </div>
+
+        <div class="mc-menu-panel">
+            <div class="mc-panel-header">Select Built-In Link</div>
+            
+            <input 
+                type="text" 
+                id="g8me-search-input" 
+                class="mc-search-box" 
+                placeholder="Search g8mes..." 
+                autocomplete="off"
+            >
+
+            <div id="g8mes-grid" class="mc-grid-layout"></div>
+
+            <div class="mc-divider"></div>
+
+            <a href="#" id="to-menu-from-pr8xies" class="custom-button" style="width: max-content; margin: 0 auto;">Back to Menu</a>
+        </div>
+    </div>
+
+    <div id="options-view" class="view hidden">
+        <div class="title-container">
+            <h1 style="margin-top: 60px;">
+                <img src="images/GEEKS-BUNKER.png" alt="Geeks Bunker">
+            </h1>
+            <h2 class="splash-text">Loading...</h2>
+        </div>
+
+        <div style="text-align: center; margin: 40px auto; width: 80%; background-color: rgba(0,0,0,0.6); border: 3px solid #3c3c3c; padding: 20px; border-radius: 4px; font-family: 'Mojangles', sans-serif; color: white;">
+            
+            <h3>Tab Cloaking Settings</h3>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px;">Change Tab Title:</label>
+                <input type="text" id="tab-title-input" placeholder="e.g., Google Docs" style="padding: 8px; width: 60%; background: #1a1a1a; border: 2px solid #3c3c3c; color: white; font-family: sans-serif;">
+            </div>
+
+            <div style="margin-bottom: 30px;">
+                <label style="display: block; margin-bottom: 8px;">Change Tab Icon:</label>
+                <select id="tab-icon-select" style="padding: 8px; width: 63%; background: #1a1a1a; border: 2px solid #3c3c3c; color: white; font-family: sans-serif;">
+                    <option value="">Default</option>
+                    <option value="https://google.com/favicon.ico">Google</option>
+                    <option value="https://www.google.com/s2/favicons?domain=parents.canvaslms.com&sz=48">Canvas</option>
+                    <option value="https://login.classlink.com/favicon.ico">Classlink</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 30px; border-top: 2px solid #3c3c3c; padding-top: 20px;">
+                <label style="display: block; margin-bottom: 12px;">Browser History Protection (! RECOMMENDED !):</label>
+                <button id="about-blank-btn" class="btn-close" style="width: auto; padding: 10px 20px; font-size: 16px; background-color: #555;">Open in about:blank</button>
+            </div>
+
+            <button id="save-options-btn" class="btn-close" style="width: auto; padding: 10px 30px; font-size: 16px;">Apply Settings</button>
+        </div>
+        <p>
+            <a href="#menu" id="to-menu-from-options" class="custom-button">Back to Menu</a>
+        </p>
+    </div>
+
+    <div class="bottom-left-container">
+        <a href="https://discord.gg/Nqye6a7bTm" target="_blank" rel="noopener noreferrer">
+            <img src="images/app.png" class="bottom-left-icon" alt="Discord Icon">
+        </a>
+        <a href="https://github.com/idontknow73671/Geeks-bunker" target="_blank" rel="noopener noreferrer">
+            <img src="images/app2.png" class="bottom-left-icon" alt="GitHub Icon">
+        </a>
+    </div>
+
+    <footer>
+        <button id="mute-btn" class="btn-close" style="width: auto; padding: 6px 12px; font-size: small; display: flex; align-items: center; gap: 6px;">
+            <span id="mute-icon">🔊</span> <span id="mute-text">Mute</span>
+        </button>
+        © 2026 3L Enterprises AB • Public media broadcasts only. Peer-to-peer distribution prohibited.
+    </footer>
+</body>
+</html>

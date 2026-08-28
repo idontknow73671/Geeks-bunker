@@ -1,0 +1,439 @@
+@font-face {
+    font-family: "Mojangles";
+    src: url(mojangles.otf) format('opentype');
+}
+
+h2 {
+    font-family: "Mojangles";
+    color: rgb(255, 255, 0);
+    text-align: center;
+    font-size: xx-large;
+}
+
+p {
+    font-family: "Mojangles";
+    color: white;
+    text-align: center;
+}
+
+footer {
+    font-family: "Mojangles";
+    color: white;
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    font-size: x-large;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.footer-icon {
+    height: 50px;
+    width: auto;
+    image-rendering: pixelated; 
+}
+
+.title-container {
+    position: relative;
+    width: fit-content;
+    margin: 0 auto;
+}
+
+h1 {
+    text-align: center;
+    margin: 0;
+}
+
+h1 img {
+    display: block;
+    width: 55vw; 
+    max-width: 1100px; 
+    margin: 0 auto; 
+    height: auto;
+}
+
+h2.splash-text {
+    font-family: "Mojangles", sans-serif;
+    color: #ffff55;
+    text-shadow: 2px 2px #3f3f00;
+    position: absolute;
+    bottom: -10px;
+    right: -40px;
+    margin: 0;
+    transform: rotate(-20deg);
+    animation: splashPulse 0.5s ease-in-out infinite alternate;
+    transform-origin: center;
+    z-index: 10;
+}
+
+@keyframes splashPulse {
+    0% {
+        transform: rotate(-20deg) scale(0.9);
+    }
+    100% {
+        transform: rotate(-20deg) scale(1.1);
+    }
+}
+
+@keyframes panBackground {
+    0% {
+        background-position: 0% 50%;
+    }
+    100% {
+        background-position: 100% 50%;
+    }
+}
+
+.custom-button {
+    text-align: center;
+    display: inline-block;
+    width: 50%; 
+    padding: 20px;
+    text-decoration: none;
+    background-image: url(images/minecraft-button.png);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 100% 100%;
+    color: white;
+    font-family: "Mojangles";
+    text-shadow: 2px 2px #000000;
+    font-size: xx-large;
+    white-space: nowrap;
+    margin-top: 40px; 
+}
+
+dialog {
+    border: none;
+    border-radius: 8px;
+    padding: 24px;
+    width: 400px;
+    background-image: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url(images/stone.jpg);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 100% 100%;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.dialog-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.btn-close {
+    align-self: flex-end;
+    padding: 6px 12px;
+    cursor: pointer;
+    text-align: center;
+    display: inline-block;
+    width: 100%;
+    text-decoration: none;
+    background-image: url(images/minecraft-button.png);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 100% 100%;
+    color: white;
+    font-family: "Mojangles";
+    text-shadow: 2px 2px #000000;
+    font-size: large;
+    white-space: nowrap;
+}
+
+.view {
+    transition: opacity 0.2s ease-in-out;
+    opacity: 1;
+}
+
+.hidden {
+    display: none !important;
+    opacity: 0;
+}
+
+.bottom-left-container {
+    position: fixed;
+    bottom: 4px;
+    left: -8px;
+    z-index: 200;
+    display: flex !important;
+    flex-direction: row !important;
+}
+
+.bottom-left-container a {
+    display: inline-block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 0 !important;
+}
+
+.bottom-left-container a + a {
+    margin-left: -20px !important;
+}
+
+.bottom-left-icon {
+    height: 96px !important;
+    width: auto !important;
+    display: block !important;
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    image-rendering: pixelated;
+}
+
+.mc-panel-header {
+    font-family: "Mojangles", sans-serif;
+    color: #e0e0e0;
+    font-size: xx-large;
+    text-shadow: 3px 3px #000000;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.mc-divider {
+    height: 4px;
+    background-color: #3c3c3c;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    margin: 25px auto;
+    width: 100%;
+}
+
+.mc-input-area {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-top: 30px;
+    width: 100%;
+}
+
+.mc-textbox {
+    background-color: #000000 !important;
+    border: 3px solid #3c3c3c !important;
+    color: #e0e0e0 !important;
+    font-family: "Mojangles", sans-serif;
+    font-size: xl-large;
+    padding: 16px !important;
+    width: 75% !important;
+    box-shadow: inset 4px 4px 0px rgba(0, 0, 0, 0.8);
+    outline: none;
+    box-sizing: border-box;
+}
+
+.mc-textbox:focus {
+    border-color: #ffffff !important;
+}
+
+.mc-small-btn {
+    width: 40% !important;
+    padding: 16px 24px !important;
+    font-size: large !important;
+    margin-top: 10px !important;
+    white-space: nowrap;
+}
+
+.mc-tab-bg-create {
+    background-image: url('images/menucreate.png');
+}
+
+.mc-tab-bg-load {
+    background-image: url('images/menuload.png');
+}
+
+.tab-click-regions {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 65px;
+    display: flex !important;
+    z-index: 300;
+}
+
+.tab-trigger {
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    cursor: pointer;
+    height: 100%;
+    width: 50% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+#mc-tabbed-container {
+    width: 900px !important; 
+    height: 675px !important;
+    margin: 30px auto;
+    position: relative;
+    background-size: 100% 100% !important;
+    background-repeat: no-repeat;
+    background-position: center;
+    image-rendering: pixelated;
+}
+
+#tab-toggle-btn {
+    position: absolute !important;
+    top: 30px !important;
+    left: 355px !important; 
+    width: 200px !important; 
+    height: 70px !important;  
+    pointer-events: auto !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    cursor: pointer;
+    padding: 0 !important;
+    margin: 0 !important;
+    z-index: 9999 !important;
+}
+
+.tab-content-pane .custom-button {
+    width: 100% !important;
+    box-sizing: border-box;
+    margin-top: 10px !important;
+    padding: 16px !important;
+    font-size: x-large !important;
+}
+
+.hidden-pane {
+    display: none !important;
+}
+
+#user-links-grid div {
+    width: 100% !important;
+    box-sizing: border-box;
+}
+
+#user-links-grid .custom-button {
+    margin-top: 0 !important;
+}
+
+.tab-content-pane {
+    position: absolute;
+    top: 155px !important; 
+    left: 125px !important;
+    right: 125px !important;
+    bottom: 110px !important;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+#pr8xies-view, #g8mes-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#g8mes-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    width: 80%;
+    max-width: 800px;
+    margin: 0 auto;
+    justify-items: center;
+    align-items: center;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    width: 100vw;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background-color: #202020; 
+    background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('images/background.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    animation: panBackground 40s ease-in-out infinite alternate;
+}
+
+.mc-menu-panel {
+    width: 85%;
+    max-width: 1800px;
+    margin: 30px auto;
+    background-color: rgba(16, 16, 16, 0.85);
+    border: 4px solid #3c3c3c;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.9), 0 10px 25px rgba(0, 0, 0, 0.6);
+    padding: 24px;
+    border-radius: 2px;
+    display: flex;
+    flex-direction: column;
+    align-items: center; 
+    height: auto !important; 
+    box-sizing: border-box;
+}
+
+.mc-grid-layout {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 25px;
+    width: 100%;
+    padding: 0 10px !important; 
+    box-sizing: border-box;
+    justify-items: center; 
+    align-items: center;
+    height: auto !important; 
+}
+
+.mc-grid-layout .custom-button {
+    width: 100% !important;
+    box-sizing: border-box;
+    margin-top: 10px !important;
+    padding: 16px !important;
+    font-size: x-large !important;
+}
+
+.mc-search-box {
+    background-color: #000000 !important;
+    border: 3px solid #3c3c3c !important;
+    color: #e0e0e0 !important;
+    font-family: "Mojangles";
+    font-size: 1.2rem;
+    padding: 12px !important;
+    width: 95% !important;
+    max-width: 600px;
+    box-shadow: inset 4px 4px 0px rgba(0, 0, 0, 0.8);
+    outline: none;
+    box-sizing: border-box;
+    margin: 10px auto 25px auto;
+    display: block;
+    text-align: center;
+}
+
+.mc-search-box:focus {
+    border-color: #ffffff !important;
+}
+
+#to-menu-from-links {
+    position: relative;
+    z-index: 250;
+    display: inline-block;
+}
+
+.btn-fit-text {
+    width: max-content !important;
+    padding: 20px 40px !important;
+    margin-top: 10px !important;
+}
+
+.mc-back-btn {
+    width: max-content !important;
+    min-width: 280px !important; 
+    padding: 16px 36px !important; 
+    font-size: x-large !important;
+    align-self: center !important; 
+    margin: 20px auto 0 auto !important;
+    display: inline-block !important;
+}
