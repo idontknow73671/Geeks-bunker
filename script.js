@@ -216,33 +216,6 @@ const muteIcon = document.getElementById('mute-icon');
 const muteText = document.getElementById('mute-text');
 const allAudioElements = document.querySelectorAll('audio');
 
-function applyMuteState(isMuted) {
-    allAudioElements.forEach(audio => {
-        audio.muted = isMuted;
-    });
-
-    if (isMuted) {
-        if (muteIcon) muteIcon.textContent = "🔇";
-        if (muteText) muteText.textContent = "Unmute";
-    } else {
-        if (muteIcon) muteIcon.textContent = "🔊";
-        if (muteText) muteText.textContent = "Mute";
-    }
-}
-
-if (muteBtn) {
-    muteBtn.addEventListener('click', () => {
-        if (clickAudio) {
-            clickAudio.currentTime = 0;
-            clickAudio.play().catch(err => console.log(err));
-        }
-
-        const nextMuteState = menuAudio ? !menuAudio.muted : true;
-        applyMuteState(nextMuteState);
-        localStorage.setItem('siteMuted', nextMuteState);
-    });
-}
-
 const permanentLinks = [
     { name: "Unnamed Link 1", url: "https://storage.googleapis.com/mathlearning/ilovessp/500k/math_489781" },
     { name: "Unnamed Link 2", url: "https://storage.googleapis.com/mathlearning/ilovessp/500k/mist_489782.html" },
@@ -10714,32 +10687,25 @@ if (agreeButton) {
         playRandomTrack();
     });
 }
-
 function applyMuteState(isMuted) {
-    musicTracks.forEach(audio => {
-        if (audio) audio.muted = isMuted;
+    document.querySelectorAll('audio').forEach(audio => {
+        audio.muted = isMuted;
     });
-    
-    if (clickAudio) clickAudio.muted = isMuted;
 
-    if (isMuted) {
-        if (muteIcon) muteIcon.textContent = "🔊";
-        if (muteText) muteText.textContent = "Unmute";
-    } else {
-        if (muteIcon) muteIcon.textContent = "🔇";
-        if (muteText) muteText.textContent = "Mute";
-    }
+    if (muteIcon) muteIcon.textContent = isMuted ? "🔇" : "🔊";
+    if (muteText) muteText.textContent = isMuted ? "Unmute" : "Mute";
 }
 
 if (muteBtn) {
     muteBtn.addEventListener('click', () => {
-        if (clickAudio) {
-            clickAudio.currentTime = 0;
-            clickAudio.play().catch(err => console.log(err));
-        }
+        const nextMuteState = localStorage.getItem('siteMuted') !== 'true';
 
-        const nextMuteState = currentPlayingTrack ? !currentPlayingTrack.muted : true;
         applyMuteState(nextMuteState);
-        localStorage.setItem('siteMuted', nextMuteState);
+        localStorage.setItem('siteMuted', String(nextMuteState));
+
+        if (!nextMuteState && clickAudio) {
+            clickAudio.currentTime = 0;
+            clickAudio.play().catch(err => console.log("Sound failed:", err));
+        }
     });
 }
