@@ -45,7 +45,8 @@ const saveLinkBtn = document.getElementById('save-custom-link-btn');
 const backFromG8mesBtn = document.getElementById('to-menu-from-links');
 
 const tabContainer = document.getElementById('mc-tabbed-container');
-const tabToggleBtn = document.getElementById('tab-toggle-btn');
+const loadTab = document.getElementById('tab-load-btn');
+const createTab = document.getElementById('tab-create-btn');
 const paneCreate = document.getElementById('tab-content-create');
 const paneLoad = document.getElementById('tab-content-load');
 
@@ -204,8 +205,18 @@ function buildMinecraftButton(button) {
 
     middle.innerHTML = '';
 
-    const buttonWidth = button.getBoundingClientRect().width;
-    const middleWidth = Math.max(0, buttonWidth - 10);
+    // Scale the 313 × 42 source uniformly, then tile its center horizontally.
+    // Wider buttons add tiles; they never stretch the texture sideways.
+    const { width: buttonWidth, height: buttonHeight } = button.getBoundingClientRect();
+    const scale = (buttonHeight || 42) / 42;
+    const capWidth = 5 * scale;
+    const centerWidth = 303 * scale;
+    button.style.setProperty('--mc-sprite-width', `${313 * scale}px`);
+    button.style.setProperty('--mc-sprite-height', `${42 * scale}px`);
+    button.style.setProperty('--mc-cap-width', `${capWidth}px`);
+    button.style.setProperty('--mc-right-offset', `${-308 * scale}px`);
+    button.style.setProperty('--mc-center-offset', `${-capWidth}px`);
+    const middleWidth = Math.max(0, buttonWidth - 2 * capWidth);
 
     let remaining = middleWidth;
 
@@ -214,7 +225,7 @@ function buildMinecraftButton(button) {
 
         tile.className = 'mc-middle-tile';
 
-        const tileWidth = Math.min(290, remaining);
+        const tileWidth = Math.min(centerWidth, remaining);
 
         tile.style.flexBasis = `${tileWidth}px`;
 
@@ -340,6 +351,27 @@ function renderBuiltInLinks(reset = false) {
     });
 }
 
+// Pick from the entire catalog, including links that have not been rendered yet.
+const luckyButton = document.getElementById('feeling-lucky-btn');
+const luckyStatus = document.getElementById('lucky-status');
+if (luckyButton) {
+    luckyButton.disabled = links.length === 0;
+    if (!links.length && luckyStatus) luckyStatus.textContent = 'No built-in links available yet.';
+    luckyButton.addEventListener('click', () => {
+        if (!links.length) return;
+        const index = Math.floor(Math.random() * links.length);
+        const item = links[index];
+        const url = typeof item === 'string' ? item : item.url;
+        const name = typeof item === 'string' ? `Link ${index + 1}` : (item.name || `Link ${index + 1}`);
+        if (clickAudio) {
+            clickAudio.currentTime = 0;
+            clickAudio.play().catch(() => {});
+        }
+        window.open(url, '_blank', 'noopener,noreferrer');
+        if (luckyStatus) luckyStatus.textContent = `Selected: ${name}`;
+    });
+}
+
 function removeCustomLink(index) {
     if (clickAudio) {
         clickAudio.currentTime = 0;
@@ -370,6 +402,13 @@ function renderUserSavedLinks() {
     const saved = JSON.parse(
         localStorage.getItem('userSavedLinks') || '[]'
     );
+
+    if (!saved.length) {
+        const empty = document.createElement('p');
+        empty.className = 'empty-slots';
+        empty.textContent = 'No saved slots. Use Create to add one.';
+        userGrid.appendChild(empty);
+    }
 
     saved.forEach((item, index) => {
         const slotWrapper = document.createElement('div');
@@ -417,6 +456,8 @@ function renderUserSavedLinks() {
         const deleteBtn = document.createElement('button');
 
         deleteBtn.textContent = 'X';
+        deleteBtn.setAttribute('aria-label', `Delete ${item.name}`);
+        linkAnchor.classList.add('saved-link-button');
         deleteBtn.style.position = 'absolute';
         deleteBtn.style.top = '10px';
         deleteBtn.style.right = '10px';
@@ -545,6 +586,7 @@ if (toG8mesBtn) {
     toG8mesBtn.addEventListener('click', e => {
         e.preventDefault();
         navigateTo(menuView, g8mesView);
+        selectLinkTab('load');
     });
 }
 
@@ -794,57 +836,37 @@ if (backFromG8mesBtn) {
     });
 }
 
-if (tabToggleBtn && tabContainer) {
-    tabToggleBtn.addEventListener('click', e => {
-        e.preventDefault();
-
-        if (clickAudio) {
-            clickAudio.currentTime = 0;
-            clickAudio.play().catch(() => {});
-        }
-
-        const isCreate =
-            tabContainer.classList.contains('mc-tab-bg-create');
-
-        if (isCreate) {
-            tabContainer.classList.remove('mc-tab-bg-create');
-            tabContainer.classList.add('mc-tab-bg-load');
-
-            if (paneCreate) {
-                paneCreate.style.display = 'none';
-            }
-
-            if (paneLoad) {
-                paneLoad.style.display = 'block';
-            }
-
-            if (builtInLinksRendered === 0) {
-                renderBuiltInLinks(true);
-            }
-
-            renderUserSavedLinks();
-
-            requestAnimationFrame(() => {
-                rebuildMinecraftButtons();
-});
-        } else {
-            tabContainer.classList.remove('mc-tab-bg-load');
-            tabContainer.classList.add('mc-tab-bg-create');
-
-            if (paneCreate) {
-                paneCreate.style.display = 'block';
-            }
-
-            if (paneLoad) {
-                paneLoad.style.display = 'none';
-            }
-
-            requestAnimationFrame(() => {
-                rebuildMinecraftButtons();
-            });
-        }
-    });
+function selectLinkTab(mode, playSound = false) {
+    if (playSound && clickAudio) {
+        clickAudio.currentTime = 0;
+        clickAudio.play().catch(() => {});
+    }
+    const loading = mode === 'load';
+    tabContainer.classList.toggle('mc-tab-bg-load', loading);
+    tabContainer.classList.toggle('mc-tab-bg-create', !loading);
+    paneLoad.style.display = loading ? 'block' : 'none';
+    paneCreate.style.display = loading ? 'none' : 'block';
+    loadTab.setAttribute('aria-selected', String(loading));
+    createTab.setAttribute('aria-selected', String(!loading));
+    loadTab.tabIndex = loading ? 0 : -1;
+    createTab.tabIndex = loading ? -1 : 0;
+    if (loading) {
+        if (builtInLinksRendered === 0) renderBuiltInLinks(true);
+        renderUserSavedLinks();
+    }
+    requestAnimationFrame(rebuildMinecraftButtons);
 }
+
+[loadTab, createTab].forEach((tab, index) => {
+    tab.addEventListener('click', () => selectLinkTab(index === 0 ? 'load' : 'create', true));
+    tab.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === 'Home' ? loadTab : event.key === 'End' ? createTab : index === 0 ? createTab : loadTab;
+        selectLinkTab(next === loadTab ? 'load' : 'create', true);
+        next.focus();
+    });
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput =
@@ -932,7 +954,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
     document.body.style.backgroundImage =
-        `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('${backgrounds[randomBgIndex]}')`;
+        `url('${backgrounds[randomBgIndex]}')`;
 
     requestAnimationFrame(() => {
         rebuildMinecraftButtons();

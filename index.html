@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Tab</title>
-
-    <link rel="icon" id="favicon-link" href="favicon.ico" type="image/x-icon">
+    
     <link rel="stylesheet" href="style.css">
 
     <script type="module" src="script.js"></script>
@@ -41,7 +40,7 @@
     <div id="menu-view" class="view">
 
         <div class="title-container">
-            <h1 style="margin-top: 60px; margin-right: 40px;">
+            <h1>
                 <img src="images/GEEKS-BUNKER.png" alt="Geeks Bunker">
             </h1>
 
@@ -54,26 +53,19 @@
                 <span class="mc-left"></span>
                 <span class="mc-middle"></span>
                 <span class="mc-right"></span>
-                <span class="button-text">Find G8ming Websites Here!</span>
+                <span class="button-text">Find G8ming Websites</span>
             </a>
 
             <a href="#pr8xies" id="to-pr8xies-btn" class="custom-button mc-stretch-button">
                 <span class="mc-left"></span>
                 <span class="mc-middle"></span>
                 <span class="mc-right"></span>
-                <span class="button-text">Play G8mes Here!</span>
+                <span class="button-text">Play G8mes</span>
             </a>
 
             <div class="small-button-row">
 
-                <button id="mute-btn" class="btn-close mc-stretch-button">
-                    <span class="mc-left"></span>
-                    <span class="mc-middle"></span>
-                    <span class="mc-right"></span>
-                    <span class="button-text">
-                        <span id="mute-icon">🔇</span>
-                    </span>
-                </button>
+
 
                 <a href="#credits" id="to-credits-btn" class="custom-button mc-stretch-button">
                     <span class="mc-left"></span>
@@ -89,6 +81,16 @@
                     <span class="button-text">Options</span>
                 </a>
 
+
+                <button id="mute-btn" aria-label="Toggle music" class="btn-close mc-stretch-button">
+                    <span class="mc-left"></span>
+                    <span class="mc-middle"></span>
+                    <span class="mc-right"></span>
+                    <span class="button-text">
+                        <span id="mute-icon">🔇</span>
+                    </span>
+                </button>
+
             </div>
 
         </div>
@@ -97,83 +99,45 @@
     <div id="g8mes-view" class="view hidden">
 
         <div class="title-container">
-            <h1 style="margin-top: 60px; margin-right: 40px;">
+            <h1>
                 <img src="images/GEEKS-BUNKER.png" alt="Geeks Bunker">
             </h1>
 
             <h2 class="splash-text">Loading...</h2>
         </div>
 
-        <div id="mc-tabbed-container" class="mc-tab-bg-create">
-
-            <div class="tab-click-regions">
-                <button id="tab-toggle-btn" class="tab-trigger"></button>
+        <div id="mc-tabbed-container" class="mc-tab-bg-load">
+            <div class="console-tabs" role="tablist" aria-label="Website slots">
+                <button id="tab-load-btn" type="button" role="tab" aria-selected="true" aria-controls="tab-content-load">Load</button>
+                <button id="tab-create-btn" type="button" role="tab" aria-selected="false" aria-controls="tab-content-create" tabindex="-1">Create</button>
             </div>
-
-            <div id="tab-content-create" class="tab-content-pane">
-
-                <div class="mc-panel-header">
-                    Save Custom Slot
+            <div class="console-window">
+                <div id="tab-content-load" class="tab-content-pane" role="tabpanel" aria-labelledby="tab-load-btn">
+                    <div class="mc-panel-header">Select a Website</div>
+                    <button id="feeling-lucky-btn" class="custom-button" type="button"><span class="button-text">I'm feeling lucky!</span></button>
+                    <p id="lucky-status" role="status">Open a random built-in website.</p>
+                    <div class="console-list" tabindex="0" aria-label="Available websites">
+                        <div class="list-heading">Saved Custom Slots</div>
+                        <div id="user-links-grid" class="mc-grid-layout"></div>
+                        <div class="list-heading">Built-In Websites</div>
+                        <div id="built-in-links-grid" class="mc-grid-layout"></div>
+                    </div>
                 </div>
-
-                <div class="mc-input-area">
-
-                    <input
-                        type="text"
-                        id="custom-link-name"
-                        class="mc-textbox"
-                        placeholder="Enter Slot Name..."
-                    >
-
-                    <input
-                        type="text"
-                        id="custom-link-url"
-                        class="mc-textbox"
-                        placeholder="Enter Website URL..."
-                    >
-
-                    <button id="save-custom-link-btn" class="custom-button mc-small-btn">
-                        <span class="button-text">Save Slot</span>
-                    </button>
-
+                <div id="tab-content-create" class="tab-content-pane" role="tabpanel" aria-labelledby="tab-create-btn" style="display: none;">
+                    <div class="mc-panel-header">Create a Website Slot</div>
+                    <div class="mc-input-area">
+                        <label for="custom-link-name">Slot Name</label>
+                        <input type="text" id="custom-link-name" class="mc-textbox" placeholder="My website" autocomplete="off">
+                        <label for="custom-link-url">Website URL</label>
+                        <input type="text" id="custom-link-url" class="mc-textbox" placeholder="https://example.com" autocomplete="off">
+                        <button id="save-custom-link-btn" class="custom-button"><span class="button-text">Save Slot</span></button>
+                    </div>
                 </div>
             </div>
-
-            <div id="tab-content-load" class="tab-content-pane" style="display: none;">
-
-                <div class="mc-panel-header">
-                    Select Built-In Link
-                </div>
-
-                <div id="built-in-links-grid" class="mc-grid-layout"></div>
-
-                <div class="mc-divider"></div>
-
-                <div class="mc-panel-header">
-                    Saved Custom Slots
-                </div>
-
-                <div id="user-links-grid" class="mc-grid-layout"></div>
-
-            </div>
-
         </div>
-
-        <div style="display: flex; justify-content: center; width: 100%; margin-top: -90px; position: relative; z-index: 10;">
-
-            <a
-                href="#"
-                id="to-menu-from-links"
-                class="custom-button"
-                style="width: max-content; margin: 0 auto;"
-            >
-                <span class="button-text">
-                    Back to Menu
-                </span>
-            </a>
-
+        <div class="back-button-row">
+            <a href="#menu" id="to-menu-from-links" class="custom-button"><span class="button-text">Back to Menu</span></a>
         </div>
-
     </div>
 
     <div id="credits-view" class="view hidden credits-screen">
@@ -212,7 +176,7 @@
     <div id="pr8xies-view" class="view hidden">
 
         <div class="title-container">
-            <h1 style="margin-top: 60px; margin-right: 40px;">
+            <h1>
                 <img src="images/GEEKS-BUNKER.png" alt="Geeks Bunker">
             </h1>
 
@@ -227,7 +191,7 @@
 
             <input
                 type="text"
-                id="g8me-search-input"
+                id="g8me-search-input" aria-label="Search games"
                 class="mc-search-box"
                 placeholder="Search g8mes..."
                 autocomplete="off"
@@ -241,7 +205,7 @@
                 href="#"
                 id="to-menu-from-pr8xies"
                 class="custom-button"
-                style="width: max-content; margin: 0 auto;"
+
             >
                 <span class="button-text">
                     Back to Menu
@@ -255,7 +219,7 @@
     <div id="options-view" class="view hidden">
 
         <div class="title-container">
-            <h1 style="margin-top: 60px; margin-right: 40px;">
+            <h1>
                 <img src="images/GEEKS-BUNKER.png" alt="Geeks Bunker">
             </h1>
 
@@ -403,7 +367,7 @@
     </div>
 
     <footer>
-        © 2026 3L Enterprises Inc. • Public media broadcasts only. Peer-to-peer distribution prohibited.
+        © 2026 3L Enterprises LLC. • Public media broadcasts only. Peer-to-peer distribution prohibited.
     </footer>
 
 </body>
