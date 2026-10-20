@@ -1,4 +1,5 @@
 import { links } from "./links.js";
+import { initializeGnMath } from "./gn-math.js";
 
 const modal = document.getElementById('popupModal');
 const agreeButton = document.querySelector('#popupModal .btn-close');
@@ -59,7 +60,6 @@ const musicTracks = [
 ].filter(track => track);
 
 let currentPlayingTrack = null;
-let allG8mesList = [];
 
 const BUILT_IN_LINK_BATCH_SIZE = 100;
 let builtInLinksRendered = 0;
@@ -483,66 +483,6 @@ function renderUserSavedLinks() {
     });
 }
 
-async function loadG8mes() {
-    const g8mesGrid = document.getElementById('g8mes-grid');
-
-    if (!g8mesGrid) {
-        return;
-    }
-
-    try {
-        const response = await fetch('./g8mes.json');
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        allG8mesList = await response.json();
-
-        renderG8mesList(allG8mesList);
-    } catch (error) {
-        console.error('G8me loading error:', error);
-
-        g8mesGrid.innerHTML =
-            '<p style="font-family: Mojangles; color: white;">Failed to load g8mes.</p>';
-    }
-}
-
-function renderG8mesList(g8mesArray) {
-    const g8mesGrid = document.getElementById('g8mes-grid');
-
-    if (!g8mesGrid) {
-        return;
-    }
-
-    g8mesGrid.innerHTML = '';
-
-    if (g8mesArray.length === 0) {
-        g8mesGrid.innerHTML =
-            '<p style="grid-column: span 2; text-align: center; font-family: Mojangles; color: white;">No g8mes found.</p>';
-
-        return;
-    }
-
-    g8mesArray.forEach(g8me => {
-        const button = document.createElement('a');
-
-        button.className = 'custom-button';
-        button.href = new URL(
-            g8me.url,
-            window.location.href
-        ).href;
-
-        button.textContent = g8me.name;
-
-        button.style.width = '100%';
-        button.style.boxSizing = 'border-box';
-        button.style.marginTop = '10px';
-
-        g8mesGrid.appendChild(button);
-    });
-}
-
 function playRandomTrack() {
     if (currentPlayingTrack) {
         currentPlayingTrack.pause();
@@ -869,25 +809,6 @@ function selectLinkTab(mode, playSound = false) {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    const searchInput =
-        document.getElementById('g8me-search-input');
-
-    if (searchInput) {
-        searchInput.addEventListener('input', e => {
-            const searchTerm =
-                e.target.value.toLowerCase().trim();
-
-            const filteredG8mes =
-                allG8mesList.filter(g8me =>
-                    g8me.name
-                        .toLowerCase()
-                        .includes(searchTerm)
-                );
-
-            renderG8mesList(filteredG8mes);
-        });
-    }
-
     const savedTitle =
         localStorage.getItem('customTabTitle');
 
@@ -969,4 +890,15 @@ window.addEventListener('load', () => {
     rebuildMinecraftButtons();
 });
 
-loadG8mes();
+let resumeMenuMusic = false;
+initializeGnMath({
+    rebuildButtons: rebuildMinecraftButtons,
+    onOpen() {
+        resumeMenuMusic = Boolean(currentPlayingTrack && !currentPlayingTrack.paused);
+        if (resumeMenuMusic) currentPlayingTrack.pause();
+    },
+    onClose() {
+        if (resumeMenuMusic && currentPlayingTrack) currentPlayingTrack.play().catch(() => {});
+        resumeMenuMusic = false;
+    }
+});

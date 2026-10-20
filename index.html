@@ -151,7 +151,7 @@
             <h1>GEEKS BUNKER</h1>
 
             <p>Created by</p>
-            <h2>3L Enterprises Inc.</h2>
+            <h2>3L Enterprises LLC.</h2>
 
             <p>Music by</p>
             <h2>C418</h2>
@@ -186,7 +186,7 @@
         <div class="mc-menu-panel">
 
             <div class="mc-panel-header">
-                Select Built-In Link
+                Play G8mes — GN Math
             </div>
 
             <input
@@ -197,7 +197,10 @@
                 autocomplete="off"
             >
 
-            <div id="g8mes-grid" class="mc-grid-layout"></div>
+            <p id="g8me-catalog-status" class="gn-catalog-status" role="status">Loading GN Math games...</p>
+            <button id="g8me-retry-btn" type="button" class="custom-button hidden"><span class="button-text">Try Again</span></button>
+            <div id="g8mes-grid" class="mc-grid-layout gn-games-grid" aria-label="GN Math games" aria-busy="true"></div>
+            <button id="g8me-load-more-btn" type="button" class="custom-button hidden"><span class="button-text">Load More G8mes</span></button>
 
             <div class="mc-divider"></div>
 
@@ -215,6 +218,22 @@
         </div>
 
     </div>
+
+    <section id="gn-game-player" class="hidden" aria-label="Game player">
+        <div class="gn-player-toolbar">
+            <h2 id="gn-player-title">GN Math</h2>
+            <button id="gn-reload-btn" type="button" class="custom-button"><span class="button-text">Reload</span></button>
+            <button id="gn-fullscreen-btn" type="button" class="custom-button"><span class="button-text">Fullscreen</span></button>
+            <button id="gn-close-btn" type="button" class="custom-button"><span class="button-text">Back to G8mes</span></button>
+        </div>
+        <div class="gn-player-stage">
+            <div id="gn-frame-host"></div>
+            <div id="gn-player-message" class="gn-player-message">
+                <p id="gn-player-status" role="status">Loading game...</p>
+                <button id="gn-retry-btn" type="button" class="custom-button hidden"><span class="button-text">Try Again</span></button>
+            </div>
+        </div>
+    </section>
 
     <div id="options-view" class="view hidden">
 
