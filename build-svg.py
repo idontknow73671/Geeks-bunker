@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""Build a jsDelivr-compatible SVG entry point from the existing website.
+"""Build the standalone Geeks Bunker SVG.
 
-No dependencies. Run this again after editing index.html, style.css, or script.js.
-The original HTML site and its assets remain usable without changes.
+Bundles application modules, supplied wallpapers, CSS, and compressed website
+links. Game catalogs, covers, the Lumin SDK, and games use their online providers.
+Run again after editing any source module, stylesheet, or wallpaper.
 """
 
 import json
+import base64
+import gzip
+import re
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -26,7 +30,32 @@ def build():
     gn_import = 'import { initializeGnMath } from "./gn-math.js";'
     if script.count(gn_import) != 1:
         raise SystemExit('Expected one initializeGnMath import in script.js.')
-    script = script.replace(gn_import, gn_math.replace('export function initializeGnMath', 'function initializeGnMath', 1))
+    gn_math = gn_math.replace('import { loadLuminCatalog, loadLuminCover, resolveLuminGame } from "./lumin.js";', '')
+    lumin = (ROOT / 'lumin.js').read_text(encoding='utf-8').replace('export async function ', 'async function ')
+    script = script.replace(gn_import, lumin + '\n' + gn_math.replace('export function initializeGnMath', 'function initializeGnMath', 1))
+
+    # Store supplied wallpapers once in the application; thumbnails and the
+    # dashboard background share these exact data URLs.
+    for filename in ['windows11.jpg', 'playstation.jpg', 'macos.jpg']:
+        relative = 'images/wallpapers/' + filename
+        encoded = base64.b64encode((ROOT / relative).read_bytes()).decode('ascii')
+        script = script.replace(relative, 'data:image/jpeg;base64,' + encoded)
+
+    # Embed the exact user-supplied PS4 audio files, preserving the one-file app.
+    for filename in ['ps4-menu.mp3', 'ps4-select.mp3']:
+        relative = 'audio/' + filename
+        encoded = base64.b64encode((ROOT / relative).read_bytes()).decode('ascii')
+        script = script.replace(relative, 'data:audio/mpeg;base64,' + encoded)
+
+    # The 72k website collection compresses well. Inflate it only when Websites
+    # is opened, keeping the SVG self-contained without slowing dashboard startup.
+    catalog_source = (ROOT / 'links.js').read_text(encoding='utf-8')
+    records = re.findall(r'name:\s*("(?:\\.|[^"\\])*")\s*,\s*url:\s*("(?:\\.|[^"\\])*")', catalog_source)
+    if not records:
+        raise SystemExit('Could not read the built-in website collection from links.js.')
+    catalog = [{'name': json.loads(name), 'url': json.loads(url)} for name, url in records]
+    packed = base64.b64encode(gzip.compress(json.dumps(catalog, separators=(',', ':')).encode('utf-8'), mtime=0)).decode('ascii')
+    html = html.replace('<body>', '<body><script id="embedded-links" type="application/octet-stream">' + packed + '</script>', 1)
 
     # srcdoc has an about:srcdoc location. Resolve links against the SVG URL instead.
     script = script.replace('window.location.href', 'document.baseURI')
@@ -50,8 +79,8 @@ def build():
     payload = json.dumps(html, ensure_ascii=True).replace('<', r'\u003c').replace('>', r'\u003e')
     svg = '''<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"
-     style="position:fixed;inset:0;width:100%;height:100%;background:#53644b">
-  <title id="site-title">New Tab</title>
+     style="position:fixed;inset:0;width:100%;height:100%;background:#101318">
+  <title id="site-title">Geeks Bunker</title>
   <desc>Geeks Bunker. Open this SVG directly in a browser to use the interactive website.</desc>
   <foreignObject x="0" y="0" width="100%" height="100%">
     <div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%">
@@ -100,7 +129,7 @@ def build():
     if size > 20_000_000:
         raise SystemExit('SVG exceeds the conservative 20 MB jsDelivr GitHub file limit.')
     print(f'Built {output.name}: {size:,} bytes')
-    print('Keep links.js, mojangles.otf, images/, and audio/ next to it.')
+    print(f'Bundled wallpapers, PS4 audio, GN Math, Lumin, and {len(catalog):,} website links. No local asset dependencies.')
 
 
 if __name__ == '__main__':

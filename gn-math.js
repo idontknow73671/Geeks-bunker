@@ -1,5 +1,6 @@
+import { loadLuminCatalog, loadLuminCover, resolveLuminGame } from "./lumin.js";
 // GN Math integration using the same catalog mirror and fetch-to-iframe approach
-// as the supplied Opium reference. Keep this module alongside index.svg.
+// as the supplied Opium reference. Lumin remains a separate selectable provider.
 const SOURCES = [
     {
         catalog: 'https://cdn.jsdelivr.net/gh/freebuisness/assets@main/zones.json',
@@ -50,7 +51,7 @@ function gameDocument(html, url) {
     return element + html;
 }
 
-export function initializeGnMath({ rebuildButtons, onOpen, onClose }) {
+export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = () => {} }) {
     const grid = document.getElementById('g8mes-grid');
     const search = document.getElementById('g8me-search-input');
     const catalogStatus = document.getElementById('g8me-catalog-status');
@@ -64,9 +65,11 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose }) {
     const retry = document.getElementById('gn-retry-btn');
     const close = document.getElementById('gn-close-btn');
     const fullscreen = document.getElementById('gn-fullscreen-btn');
-    const clickAudio = document.getElementById('clickSound');
     if (!grid || !player) return;
 
+    let source = 'gn';
+    let catalogGeneration = 0;
+    const catalogs = new Map();
     let games = [];
     let matches = [];
     let shown = 0;
@@ -74,11 +77,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose }) {
     let activeRequest = null;
     let generation = 0;
     let returnFocus = null;
-    const sound = () => {
-        if (!clickAudio) return;
-        clickAudio.currentTime = 0;
-        clickAudio.play().catch(() => {});
-    };
+    const sound = playSound;
     const exitFullscreenOnEscape = event => {
         if (event.key === 'Escape' && document.fullscreenElement === player) {
             event.preventDefault();
@@ -89,9 +88,9 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose }) {
 
     function updateCount() {
         const query = search.value.trim();
-        catalogStatus.textContent = `${matches.length.toLocaleString()}${query ? ' matching' : ''} GN Math games · ${shown.toLocaleString()} shown`;
+        catalogStatus.textContent = `${matches.length.toLocaleString()}${query ? ' matching' : ''} ${source === 'lumin' ? 'Lumin' : 'GN Math'} games · ${shown.toLocaleString()} shown`;
         more.classList.toggle('hidden', shown >= matches.length);
-        more.querySelector('.button-text').textContent = `Load More G8mes (${Math.max(0, matches.length - shown).toLocaleString()} remaining)`;
+        more.querySelector('.button-text').textContent = `Load more games (${Math.max(0, matches.length - shown).toLocaleString()} remaining)`;
     }
 
     function appendGames() {
@@ -104,21 +103,29 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose }) {
             card.setAttribute('aria-label', `Play ${game.name}`);
             const art = document.createElement('span');
             art.className = 'gn-game-art';
-            art.textContent = 'GN';
+            art.textContent = game.provider === 'lumin' ? 'L' : 'GN';
             art.setAttribute('aria-hidden', 'true');
             const image = document.createElement('img');
-            image.src = game.cover;
+            if (game.provider !== 'lumin') image.src = game.cover;
+            else if (game.imageToken) {
+                const coverObserver = new IntersectionObserver(entries => {
+                    if (!entries.some(entry => entry.isIntersecting)) return;
+                    coverObserver.disconnect();
+                    loadLuminCover(game.imageToken).then(url => { if (url && image.isConnected) image.src = url; }).catch(() => image.remove());
+                }, { rootMargin: '180px' });
+                coverObserver.observe(image);
+            } else image.remove();
             image.alt = '';
             image.loading = 'lazy';
             image.decoding = 'async';
             let triedFallback = false;
             image.addEventListener('error', () => {
-                if (!triedFallback && game.fallbackCover !== game.cover) {
+                if (!triedFallback && game.fallbackCover && game.fallbackCover !== game.cover) {
                     triedFallback = true;
                     image.src = game.fallbackCover;
                 } else image.remove();
             });
-            art.append(image);
+            if (game.provider !== 'lumin' || game.imageToken) art.append(image);
             const label = document.createElement('span');
             label.className = 'gn-game-name';
             label.textContent = game.name;
@@ -147,42 +154,56 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose }) {
         }
     }
 
-    async function loadCatalog() {
-        catalogRetry.classList.add('hidden');
-        grid.setAttribute('aria-busy', 'true');
-        catalogStatus.textContent = 'Loading GN Math games...';
-        for (const source of SOURCES) {
+    async function fetchGnCatalog() {
+        for (const endpoint of SOURCES) {
             try {
-                const data = JSON.parse(await fetchWithTimeout(source.catalog));
+                const data = JSON.parse(await fetchWithTimeout(endpoint.catalog));
                 if (!Array.isArray(data)) throw new Error('Invalid catalog');
-                const playable = data.filter(game => Number(game.id) >= 0 &&
-                    typeof game.name === 'string' && !game.name.startsWith('[!]') && typeof game.url === 'string' &&
-                    game.url.startsWith('{HTML_URL}/'));
+                const playable = data.filter(game => Number(game.id) >= 0 && typeof game.name === 'string' &&
+                    !game.name.startsWith('[!]') && typeof game.url === 'string' && game.url.startsWith('{HTML_URL}/'));
                 if (!playable.length) throw new Error('Empty catalog');
-                games = playable.map(game => {
+                return playable.map(game => {
                     const path = game.url.slice('{HTML_URL}/'.length);
-                    const coverPath = typeof game.cover === 'string' && game.cover.startsWith('{COVER_URL}/')
-                        ? game.cover.slice('{COVER_URL}/'.length) : `${game.id}.png`;
+                    const coverPath = typeof game.cover === 'string' && game.cover.startsWith('{COVER_URL}/') ? game.cover.slice('{COVER_URL}/'.length) : `${game.id}.png`;
                     return {
-                        id: game.id, name: game.name,
-                        urls: [...new Set([new URL(path, source.html).href,
+                        id: game.id, name: game.name, provider: 'gn',
+                        urls: [...new Set([new URL(path, endpoint.html).href,
                             `https://raw.githubusercontent.com/freebuisness/html/main/${path}`,
                             `https://raw.githubusercontent.com/gn-math/html/main/${path}`])],
-                        cover: new URL(coverPath, source.covers).href,
+                        cover: new URL(coverPath, endpoint.covers).href,
                         fallbackCover: `https://raw.githubusercontent.com/gn-math/covers/main/${coverPath}`
                     };
-                }).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
-                grid.setAttribute('aria-busy', 'false');
-                filterGames();
-                return;
-            } catch (error) {
-                console.warn('GN Math catalog source unavailable:', source.catalog, error.message);
-            }
+                });
+            } catch (error) { console.warn('GN Math source unavailable:', error.message); }
         }
-        grid.setAttribute('aria-busy', 'false');
-        catalogStatus.textContent = 'Could not load GN Math. Check your connection and try again.';
-        catalogRetry.classList.remove('hidden');
-        requestAnimationFrame(rebuildButtons);
+        throw new Error('Could not reach GN Math. Check your connection and try again.');
+    }
+    async function loadCatalog() {
+        const version = ++catalogGeneration;
+        const requestedSource = source;
+        catalogRetry.classList.add('hidden'); more.classList.add('hidden');
+        grid.setAttribute('aria-busy', 'true'); grid.replaceChildren();
+        games = []; matches = [];
+        catalogStatus.textContent = `Loading ${source === 'lumin' ? 'Lumin' : 'GN Math'}...`;
+        try {
+            const catalog = catalogs.get(requestedSource) || await (requestedSource === 'lumin' ? loadLuminCatalog() : fetchGnCatalog());
+            catalogs.set(requestedSource, catalog);
+            document.dispatchEvent(new CustomEvent('catalogready', { detail: { source: requestedSource, games: catalog } }));
+            if (version !== catalogGeneration) return;
+            games = [...catalog].sort((a,b) => a.name.localeCompare(b.name, undefined, {sensitivity:'base',numeric:true}));
+            grid.setAttribute('aria-busy','false'); filterGames();
+        } catch (error) {
+            if (version !== catalogGeneration) return;
+            grid.setAttribute('aria-busy','false');
+            catalogStatus.textContent = source === 'lumin' ? `Lumin is unavailable: ${error.message} GN Math is still available.` : error.message;
+            catalogRetry.classList.remove('hidden');
+        }
+    }
+    async function setSource(next) {
+        source = next === 'lumin' ? 'lumin' : 'gn';
+        search.value = '';
+        document.querySelectorAll('[data-source]').forEach(button => { const selected = button.dataset.source === source; button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1; });
+        await loadCatalog();
     }
 
     async function openGame(game, trigger = null) {
@@ -197,35 +218,43 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose }) {
         host.replaceChildren();
         title.textContent = game.name;
         player.classList.remove('hidden');
+        document.querySelectorAll('.topbar, main, .dashboard-footer').forEach(element => { element.inert = true; });
         message.classList.remove('hidden');
         retry.classList.add('hidden');
         status.textContent = `Loading ${game.name}...`;
         if (wasClosed) onOpen();
         close.focus();
         requestAnimationFrame(rebuildButtons);
+        const mountFrame = (value, isDocument) => {
+            if (current !== generation || request.signal.aborted) return;
+            const frame = document.createElement('iframe');
+            frame.id = 'gn-game-frame'; frame.title = game.name;
+            frame.allow = 'autoplay; fullscreen; gamepad; clipboard-write'; frame.allowFullscreen = true;
+            frame.addEventListener('load', () => {
+                if (current !== generation) return;
+                message.classList.add('hidden');
+                frame.contentDocument?.addEventListener('keydown', exitFullscreenOnEscape, true);
+                frame.contentWindow?.focus();
+                document.dispatchEvent(new CustomEvent('gameplayed', {detail:game}));
+            }, {once:true});
+            if (isDocument) frame.srcdoc = value; else frame.src = value;
+            host.replaceChildren(frame);
+        };
+        if (game.provider === 'lumin') {
+            try { const url = await resolveLuminGame(game.id); mountFrame(url,false); return; }
+            catch (error) {
+                if (current !== generation) return;
+                status.textContent = `Could not start ${game.name}: ${error.message}`;
+                retry.classList.remove('hidden'); return;
+            }
+        }
         for (const url of game.urls) {
             try {
-                const html = gameDocument(await fetchWithTimeout(url, { signal: request.signal }), url);
-                if (current !== generation || request.signal.aborted) return;
-                const frame = document.createElement('iframe');
-                frame.id = 'gn-game-frame';
-                frame.title = game.name;
-                frame.allow = 'autoplay; fullscreen; gamepad; clipboard-write';
-                frame.allowFullscreen = true;
-                frame.addEventListener('load', () => {
-                    if (current !== generation) return;
-                    message.classList.add('hidden');
-                    frame.contentDocument?.addEventListener('keydown', exitFullscreenOnEscape, true);
-                    frame.contentWindow?.focus();
-                }, { once: true });
-                // Fetch the text and run it as HTML; navigating to the CDN's .html
-                // URL directly would show plain text instead of starting the game.
-                frame.srcdoc = html;
-                host.replaceChildren(frame);
-                return;
+                const html = gameDocument(await fetchWithTimeout(url, {signal:request.signal}),url);
+                mountFrame(html,true); return;
             } catch (error) {
                 if (current !== generation || request.signal.aborted) return;
-                console.warn('GN Math game source unavailable:', url, error.message);
+                console.warn('Game source unavailable:',url,error.message);
             }
         }
         if (current !== generation) return;
@@ -243,6 +272,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose }) {
         host.replaceChildren();
         if (document.fullscreenElement === player) await document.exitFullscreen().catch(() => {});
         player.classList.add('hidden');
+        document.querySelectorAll('.topbar, main, .dashboard-footer').forEach(element => { element.inert = false; });
         onClose();
         returnFocus?.focus({ preventScroll: true });
     }
@@ -265,4 +295,5 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose }) {
         fullscreen.querySelector('.button-text').textContent = document.fullscreenElement === player ? 'Exit Fullscreen' : 'Fullscreen';
     });
     loadCatalog();
+    return { launch: openGame, setSource, getGames: () => games };
 }

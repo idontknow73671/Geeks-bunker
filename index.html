@@ -1,393 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Tab</title>
-    
-    <link rel="stylesheet" href="style.css">
-
-    <script type="module" src="script.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Geeks Bunker</title>
+<link id="favicon-link" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%238edb44'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-size='36' font-family='Arial' font-weight='bold'%3EG%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<script type="module" src="script.js"></script>
 </head>
-
 <body>
-
-    <dialog id="popupModal">
-        <div class="dialog-content">
-            <h2>NOTICE OF UNAUTHORIZED COMMERCIALIZATION</h2>
-
-            <p>
-                If you paid any amount of money to access this site, demand an immediate refund.
-                This includes if you purchased a link from someone. Access is entirely free.
-                Freedom should never be up for sale.
-            </p>
-
-            <p>
-                By clicking "I Agree" you willingly accept that I am NOT responsible for any trouble
-            </p>
-
-            <form method="dialog">
-                <button class="btn-close">I Agree</button>
-            </form>
-        </div>
-    </dialog>
-
-    <audio id="Menu1" src="audio/menu.mp3"></audio>
-    <audio id="Menu2" src="audio/menu2.mp3"></audio>
-    <audio id="Menu3" src="audio/menu3.mp3"></audio>
-    <audio id="clickSound" src="audio/click.mp3"></audio>
-
-    <div id="menu-view" class="view">
-
-        <div class="title-container">
-            <h1>
-                <img src="images/GEEKS-BUNKER.png" alt="Geeks Bunker">
-            </h1>
-
-            <h2 class="splash-text">Loading...</h2>
-        </div>
-
-        <div>
-
-            <a href="#g8mes" id="to-g8mes-btn" class="custom-button mc-stretch-button">
-                <span class="mc-left"></span>
-                <span class="mc-middle"></span>
-                <span class="mc-right"></span>
-                <span class="button-text">Find G8ming Websites</span>
-            </a>
-
-            <a href="#pr8xies" id="to-pr8xies-btn" class="custom-button mc-stretch-button">
-                <span class="mc-left"></span>
-                <span class="mc-middle"></span>
-                <span class="mc-right"></span>
-                <span class="button-text">Play G8mes</span>
-            </a>
-
-            <div class="small-button-row">
-
-
-
-                <a href="#credits" id="to-credits-btn" class="custom-button mc-stretch-button">
-                    <span class="mc-left"></span>
-                    <span class="mc-middle"></span>
-                    <span class="mc-right"></span>
-                    <span class="button-text">Credits</span>
-                </a>
-
-                <a href="#options" id="to-options-btn" class="custom-button mc-stretch-button">
-                    <span class="mc-left"></span>
-                    <span class="mc-middle"></span>
-                    <span class="mc-right"></span>
-                    <span class="button-text">Options</span>
-                </a>
-
-
-                <button id="mute-btn" aria-label="Toggle music" class="btn-close mc-stretch-button">
-                    <span class="mc-left"></span>
-                    <span class="mc-middle"></span>
-                    <span class="mc-right"></span>
-                    <span class="button-text">
-                        <span id="mute-icon">🔇</span>
-                    </span>
-                </button>
-
-            </div>
-
-        </div>
-    </div>
-
-    <div id="g8mes-view" class="view hidden">
-
-        <div class="title-container">
-            <h1>
-                <img src="images/GEEKS-BUNKER.png" alt="Geeks Bunker">
-            </h1>
-
-            <h2 class="splash-text">Loading...</h2>
-        </div>
-
-        <div id="mc-tabbed-container" class="mc-tab-bg-load">
-            <div class="console-tabs" role="tablist" aria-label="Website slots">
-                <button id="tab-load-btn" type="button" role="tab" aria-selected="true" aria-controls="tab-content-load">Load</button>
-                <button id="tab-create-btn" type="button" role="tab" aria-selected="false" aria-controls="tab-content-create" tabindex="-1">Create</button>
-            </div>
-            <div class="console-window">
-                <div id="tab-content-load" class="tab-content-pane" role="tabpanel" aria-labelledby="tab-load-btn">
-                    <div class="mc-panel-header">Select a Website</div>
-                    <button id="feeling-lucky-btn" class="custom-button" type="button"><span class="button-text">I'm feeling lucky!</span></button>
-                    <p id="lucky-status" role="status">Open a random built-in website.</p>
-                    <div class="console-list" tabindex="0" aria-label="Available websites">
-                        <div class="list-heading">Saved Custom Slots</div>
-                        <div id="user-links-grid" class="mc-grid-layout"></div>
-                        <div class="list-heading">Built-In Websites</div>
-                        <div id="built-in-links-grid" class="mc-grid-layout"></div>
-                    </div>
-                </div>
-                <div id="tab-content-create" class="tab-content-pane" role="tabpanel" aria-labelledby="tab-create-btn" style="display: none;">
-                    <div class="mc-panel-header">Create a Website Slot</div>
-                    <div class="mc-input-area">
-                        <label for="custom-link-name">Slot Name</label>
-                        <input type="text" id="custom-link-name" class="mc-textbox" placeholder="My website" autocomplete="off">
-                        <label for="custom-link-url">Website URL</label>
-                        <input type="text" id="custom-link-url" class="mc-textbox" placeholder="https://example.com" autocomplete="off">
-                        <button id="save-custom-link-btn" class="custom-button"><span class="button-text">Save Slot</span></button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="back-button-row">
-            <a href="#menu" id="to-menu-from-links" class="custom-button"><span class="button-text">Back to Menu</span></a>
-        </div>
-    </div>
-
-    <div id="credits-view" class="view hidden credits-screen">
-
-        <button id="credits-exit-btn" aria-label="Exit credits">✕</button>
-
-        <div class="credits-scroll">
-
-            <div class="credits-spacer"></div>
-
-            <h1>GEEKS BUNKER</h1>
-
-            <p>Created by</p>
-            <h2>3L Enterprises LLC.</h2>
-
-            <p>Music by</p>
-            <h2>C418</h2>
-
-            <p>Background created by</p>
-            <h2>4J Studios</h2>
-
-            <p>Website Helpers</p>
-            <h2>Plentify</h2>
-            <h2>Zaka</h2>
-
-            <p>Link Contributors</p>
-            <h2>Bird Cat</h2>
-            <h2>Offensive Asian</h2>
-
-            <div class="credits-spacer"></div>
-
-        </div>
-
-    </div>
-
-    <div id="pr8xies-view" class="view hidden">
-
-        <div class="title-container">
-            <h1>
-                <img src="images/GEEKS-BUNKER.png" alt="Geeks Bunker">
-            </h1>
-
-            <h2 class="splash-text">Loading...</h2>
-        </div>
-
-        <div class="mc-menu-panel">
-
-            <div class="mc-panel-header">
-                Play G8mes — GN Math
-            </div>
-
-            <input
-                type="text"
-                id="g8me-search-input" aria-label="Search games"
-                class="mc-search-box"
-                placeholder="Search g8mes..."
-                autocomplete="off"
-            >
-
-            <p id="g8me-catalog-status" class="gn-catalog-status" role="status">Loading GN Math games...</p>
-            <button id="g8me-retry-btn" type="button" class="custom-button hidden"><span class="button-text">Try Again</span></button>
-            <div id="g8mes-grid" class="mc-grid-layout gn-games-grid" aria-label="GN Math games" aria-busy="true"></div>
-            <button id="g8me-load-more-btn" type="button" class="custom-button hidden"><span class="button-text">Load More G8mes</span></button>
-
-            <div class="mc-divider"></div>
-
-            <a
-                href="#"
-                id="to-menu-from-pr8xies"
-                class="custom-button"
-
-            >
-                <span class="button-text">
-                    Back to Menu
-                </span>
-            </a>
-
-        </div>
-
-    </div>
-
-    <section id="gn-game-player" class="hidden" aria-label="Game player">
-        <div class="gn-player-toolbar">
-            <h2 id="gn-player-title">GN Math</h2>
-            <button id="gn-reload-btn" type="button" class="custom-button"><span class="button-text">Reload</span></button>
-            <button id="gn-fullscreen-btn" type="button" class="custom-button"><span class="button-text">Fullscreen</span></button>
-            <button id="gn-close-btn" type="button" class="custom-button"><span class="button-text">Back to G8mes</span></button>
-        </div>
-        <div class="gn-player-stage">
-            <div id="gn-frame-host"></div>
-            <div id="gn-player-message" class="gn-player-message">
-                <p id="gn-player-status" role="status">Loading game...</p>
-                <button id="gn-retry-btn" type="button" class="custom-button hidden"><span class="button-text">Try Again</span></button>
-            </div>
-        </div>
-    </section>
-
-    <div id="options-view" class="view hidden">
-
-        <div class="title-container">
-            <h1>
-                <img src="images/GEEKS-BUNKER.png" alt="Geeks Bunker">
-            </h1>
-
-            <h2 class="splash-text">Loading...</h2>
-        </div>
-
-        <div class="mc-options-screen">
-
-            <div class="mc-options-title">
-                Options
-            </div>
-
-            <div class="mc-options-section">
-
-                <div class="mc-option-row">
-                    <div class="mc-option-label">
-                        Change Tab Title
-                    </div>
-
-                    <input
-                        type="text"
-                        id="tab-title-input"
-                        placeholder="Google Docs"
-                        class="mc-options-input"
-                    >
-                </div>
-
-                <div class="mc-option-row">
-                    <div class="mc-option-label">
-                        Change Tab Icon
-                    </div>
-
-                    <select
-                        id="tab-icon-select"
-                        class="mc-options-input"
-                    >
-                        <option value="">Default</option>
-
-                        <option value="https://google.com/favicon.ico">
-                            Google
-                        </option>
-
-                        <option value="https://www.google.com/s2/favicons?domain=parents.canvaslms.com&sz=48">
-                            Canvas
-                        </option>
-
-                        <option value="https://login.classlink.com/favicon.ico">
-                            Classlink
-                        </option>
-                    </select>
-                </div>
-
-            </div>
-
-            <div class="mc-options-divider"></div>
-
-            <div class="mc-options-section">
-
-                <div class="mc-option-row mc-option-button-row">
-
-                    <div class="mc-option-label">
-                        Browser History Protection
-                    </div>
-
-                    <button
-                        id="about-blank-btn"
-                        class="btn-close mc-stretch-button mc-options-button"
-                    >
-                        <span class="mc-left"></span>
-                        <span class="mc-middle"></span>
-                        <span class="mc-right"></span>
-
-                        <span class="button-text">
-                            Open in about:blank
-                        </span>
-                    </button>
-
-                </div>
-
-            </div>
-
-            <div class="mc-options-divider"></div>
-
-            <div class="mc-options-footer">
-
-                <button
-                    id="save-options-btn"
-                    class="btn-close mc-stretch-button mc-options-apply"
-                >
-                    <span class="mc-left"></span>
-                    <span class="mc-middle"></span>
-                    <span class="mc-right"></span>
-
-                    <span class="button-text">
-                        Done
-                    </span>
-                </button>
-
-            </div>
-
-        </div>
-
-        <a
-            href="#menu"
-            id="to-menu-from-options"
-            class="custom-button mc-stretch-button mc-options-back"
-        >
-            <span class="mc-left"></span>
-            <span class="mc-middle"></span>
-            <span class="mc-right"></span>
-
-            <span class="button-text">
-                Back to Menu
-            </span>
-        </a>
-
-    </div>
-
-    <div class="bottom-left-container">
-
-        <a
-            href="https://discord.gg/Nqye6a7bTm"
-            target="_blank"
-            rel="noopener noreferrer"
-        >
-            <img
-                src="images/app.png"
-                class="bottom-left-icon"
-                alt="Discord Icon"
-            >
-        </a>
-
-        <a
-            href="https://github.com/idontknow73671/Geeks-bunker"
-            target="_blank"
-            rel="noopener noreferrer"
-        >
-            <img
-                src="images/app2.png"
-                class="bottom-left-icon"
-                alt="GitHub Icon"
-            >
-        </a>
-
-    </div>
-
-    <footer>
-        © 2026 3L Enterprises LLC. • Public media broadcasts only. Peer-to-peer distribution prohibited.
-    </footer>
-
+<div class="wallpaper" aria-hidden="true"></div><div class="wallpaper-shade" aria-hidden="true"></div>
+<header class="topbar">
+ <a class="brand" href="#home" data-view="home" aria-label="Geeks Bunker Home"><span class="brand-mark">G<span>•</span></span><span>geeks bunker</span></a>
+ <nav aria-label="Main navigation">
+  <button data-view="home" class="nav-item active" aria-current="page">Home</button>
+  <button data-view="games" class="nav-item">Game library</button>
+  <button data-view="links" class="nav-item">Websites</button>
+  <button data-view="settings" class="nav-item">Settings</button>
+ </nav>
+ <div class="header-tools"><time id="dashboard-clock"></time><button id="music-shortcut" class="music-shortcut" aria-label="Turn background music off" aria-pressed="true" title="Turn background music off"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4Z"/><path id="music-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path id="music-muted" class="hidden" d="m16 9 5 6m0-6-5 6"/></svg></button><button id="profile-btn" class="profile-button" aria-label="Customize your profile"><span class="avatar" id="profile-avatar">P</span><span id="profile-name">Player</span></button></div>
+</header>
+<main>
+ <section id="view-home" class="page home-page">
+  <div class="welcome"><p class="eyebrow">YOUR SPACE. YOUR GAMES.</p><h1>Welcome back, <span id="welcome-name">Player</span>.</h1><p>Something good to play. A place that feels like you.</p></div>
+  <div class="section-heading"><h2>Jump into a game</h2><button class="text-button" data-view="games">View all games <span aria-hidden="true">→</span></button></div>
+  <div class="home-strip" id="home-games">
+   <button class="library-tile" data-view="games"><span class="tile-symbol" aria-hidden="true">▦</span><span><strong>Your game library</strong><small>GN Math + Lumin</small></span><span class="tile-arrow" aria-hidden="true">↗</span></button>
+   <div id="featured-games" class="featured-games"><div class="game-placeholder">Loading your next favorite...</div></div>
+  </div>
+  <div class="section-heading shortcuts-heading"><h2>Make yourself at home</h2><span class="muted">Everything, one click away.</span></div>
+  <div class="shortcut-grid">
+   <button class="shortcut" data-view="links"><span class="shortcut-icon" aria-hidden="true">↗</span><span><strong>Your websites</strong><small>Saved links & the full built-in collection</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
+   <button class="shortcut" id="home-personalize"><span class="shortcut-icon" aria-hidden="true">◐</span><span><strong>Make it yours</strong><small>Wallpapers, colors & your profile</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
+   <button class="shortcut recent-shortcut" id="recent-game"><span class="shortcut-icon" aria-hidden="true">▷</span><span><strong id="recent-title">Ready when you are</strong><small id="recent-description">Your last game will appear here</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
+  </div>
+ </section>
+ <section id="view-games" class="page hidden">
+  <div class="page-heading"><div><p class="eyebrow">ALL YOUR FAVORITES</p><h1>Game library</h1></div><div class="provider-tabs" role="tablist" aria-label="Game source"><button id="provider-gn" role="tab" aria-selected="true" data-source="gn">GN Math</button><button id="provider-lumin" role="tab" tabindex="-1" aria-selected="false" data-source="lumin">Lumin</button></div></div>
+  <div class="library-controls"><label class="search-field"><span aria-hidden="true">⌕</span><input id="g8me-search-input" type="search" placeholder="Search your next game" aria-label="Search games" autocomplete="off"></label><p id="g8me-catalog-status" role="status">Loading GN Math...</p></div>
+  <button id="g8me-retry-btn" class="button hidden" type="button">Try again</button>
+  <div id="g8mes-grid" class="game-grid" aria-label="Games" aria-busy="true"></div>
+  <button id="g8me-load-more-btn" class="button more-button hidden" type="button"><span class="button-text">Load more</span></button>
+ </section>
+ <section id="view-links" class="page hidden">
+  <div class="page-heading"><div><p class="eyebrow">YOUR CORNER OF THE WEB</p><h1>Websites</h1></div><button class="button" id="feeling-lucky-btn">Feeling lucky ↗</button></div>
+  <div class="links-layout"><aside class="panel"><h2>Save a website</h2><form id="save-link-form"><label>Website name<input id="custom-link-name" required maxlength="100" placeholder="My website"></label><label>Website URL<input id="custom-link-url" required placeholder="https://example.com"></label><button class="button primary" type="submit">Save website</button></form><p class="muted small" id="link-feedback" role="status">Your saved links stay in this browser.</p></aside><div><h2 class="subheading">Saved websites</h2><div id="user-links-grid" class="saved-links"></div></div></div>
+  <div class="section-heading"><h2>Built-in collection</h2><span class="muted" id="builtin-count"></span></div><label class="search-field links-search"><span aria-hidden="true">⌕</span><input type="search" id="website-search" aria-label="Search websites" placeholder="Search websites"></label><div id="built-in-links-grid" class="website-grid"></div><button id="website-more" class="button more-button hidden">Load more websites</button>
+ </section>
+ <section id="view-settings" class="page hidden">
+  <div class="page-heading"><div><p class="eyebrow">JUST THE WAY YOU LIKE IT</p><h1>Settings</h1></div></div>
+  <div class="settings-grid"><section class="panel"><h2>Your dashboard</h2><p class="muted">Your profile, your colors, your wallpaper.</p><button class="button primary" id="settings-personalize">Personalize dashboard</button><label class="setting-row">Background music<input type="checkbox" id="music-toggle"></label><label class="music-volume-label" for="music-volume">Music volume <output id="music-volume-value">18%</output></label><input id="music-volume" type="range" min="0" max="100" step="1" value="18" aria-label="Background music volume"><p id="music-status" class="small muted" role="status">Music starts after your first click or tap.</p><label class="setting-row">Select sounds<input type="checkbox" id="sound-toggle"></label><label class="setting-row">Reduce motion<input type="checkbox" id="motion-toggle"></label></section>
+  <section class="panel"><h2>Browser tab</h2><form id="tab-settings-form"><label>Tab title<input id="tab-title-input" placeholder="Geeks Bunker" maxlength="100"></label><label>Tab icon<select id="tab-icon-select"><option value="">Geeks Bunker</option><option value="https://google.com/favicon.ico">Google</option><option value="https://www.google.com/s2/favicons?domain=parents.canvaslms.com&sz=48">Canvas</option><option value="https://login.classlink.com/favicon.ico">Classlink</option></select></label><button class="button" type="submit">Save tab settings</button><p class="small muted" id="tab-status" role="status"></p></form></section>
+  <section class="panel"><h2>A little more space</h2><p class="muted">Open the dashboard in a separate blank tab.</p><button class="button" id="about-blank-btn">Open in about:blank ↗</button></section><section class="panel"><h2>About Geeks Bunker</h2><p class="muted">Free to explore. Free to play.<br>Never pay for access or a link.</p><button class="text-button" data-view="credits">Credits & information →</button></section></div>
+ </section>
+ <section id="view-credits" class="page hidden"><div class="page-heading"><div><p class="eyebrow">THE PEOPLE BEHIND THE BUNKER</p><h1>Credits</h1></div><button class="button" data-view="home">Back home</button></div><div class="panel credits-panel"><h2>Geeks Bunker</h2><dl><dt>Created by</dt><dd>3L Enterprises LLC.</dd><dt>Website helpers</dt><dd>Plentify · Zaka</dd><dt>Link contributors</dt><dd>Bird Cat · Offensive Asian</dd><dt>Game libraries</dt><dd>GN Math · Lumin</dd><dt>Wallpapers</dt><dd>Your selected Windows, PlayStation & macOS artwork</dd></dl><p class="muted">Access is entirely free. If you paid for access or a link, request a refund. Use the site responsibly.</p></div></section>
+</main>
+<footer class="dashboard-footer"><span>GEEKS BUNKER <span class="footer-dot">·</span> YOUR PLAY STARTS HERE</span><div><a href="https://discord.gg/Nqye6a7bTm" target="_blank" rel="noopener noreferrer">Discord ↗</a><a href="https://github.com/idontknow73671/Geeks-bunker" target="_blank" rel="noopener noreferrer">GitHub ↗</a><button data-view="credits">© 2026 3L Enterprises LLC.</button></div></footer>
+<dialog id="personalize-dialog" class="setup-dialog" aria-labelledby="setup-title"><form id="personalize-form">
+ <div class="setup-heading"><span class="brand-mark">G<span>•</span></span><span class="eyebrow" id="setup-eyebrow">WELCOME TO YOUR BUNKER</span></div>
+ <h1 id="setup-title">Make yourself at home.</h1><p class="muted setup-description">A few things to make this space yours. You can change these anytime.</p>
+ <div class="setup-fields"><label>What should we call you?<input id="display-name-input" placeholder="Player" maxlength="24" autocomplete="nickname"></label><fieldset><legend>Pick your color</legend><div id="accent-choices" class="accent-choices"></div></fieldset></div>
+ <fieldset><legend>Choose your backdrop</legend><div id="wallpaper-choices" class="wallpaper-choices"></div></fieldset>
+ <div class="setup-bottom"><p class="muted small">Saved on this browser. No account needed.</p><div><button type="button" class="button quiet" id="setup-cancel">Use defaults</button><button type="submit" class="button primary" id="setup-save">Let's play <span aria-hidden="true">→</span></button></div></div>
+</form></dialog>
+<section id="gn-game-player" class="hidden" aria-label="Game player"><div class="gn-player-toolbar"><h2 id="gn-player-title">Game</h2><button id="gn-reload-btn" class="button">Reload</button><button id="gn-fullscreen-btn" class="button"><span class="button-text">Fullscreen</span></button><button id="gn-close-btn" class="button primary">Back to library</button></div><div class="gn-player-stage"><div id="gn-frame-host"></div><div id="gn-player-message" class="gn-player-message"><p id="gn-player-status" role="status">Loading game...</p><button id="gn-retry-btn" class="button hidden">Try again</button></div></div></section>
+<div id="toast" class="toast hidden" role="status"></div>
 </body>
 </html>

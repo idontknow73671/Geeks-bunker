@@ -1,904 +1,331 @@
-import { links } from "./links.js";
 import { initializeGnMath } from "./gn-math.js";
 
-const modal = document.getElementById('popupModal');
-const agreeButton = document.querySelector('#popupModal .btn-close');
-
-const menuAudio = document.getElementById('Menu1');
-const clickAudio = document.getElementById('clickSound');
-
-const menuView = document.getElementById('menu-view');
-const g8mesView = document.getElementById('g8mes-view');
-const creditsView = document.getElementById('credits-view');
-const pr8xiesView = document.getElementById('pr8xies-view');
-const optionsView = document.getElementById('options-view');
-
-const toG8mesBtn = document.getElementById('to-g8mes-btn');
-const toMenuBtn = document.getElementById('to-menu-btn');
-const toCreditsBtn = document.getElementById('to-credits-btn');
-const creditsExitBtn = document.getElementById('credits-exit-btn');
-const toPr8xiesBtn = document.getElementById('to-pr8xies-btn');
-const backFromPr8xiesBtn = document.getElementById('to-menu-from-pr8xies');
-const toOptionsBtn = document.getElementById('to-options-btn');
-const backFromOptionsBtn = document.getElementById('to-menu-from-options');
-
-const proxyInput = document.getElementById('proxy-link-input');
-const launchBtn = document.getElementById('launch-portal-btn');
-const portalFrame = document.getElementById('portal-frame');
-
-const titleInput = document.getElementById('tab-title-input');
-const iconSelect = document.getElementById('tab-icon-select');
-const saveOptionsBtn = document.getElementById('save-options-btn');
-const faviconElement = document.getElementById('favicon-link');
-
-const muteBtn = document.getElementById('mute-btn');
-const muteIcon = document.getElementById('mute-icon');
-const muteText = document.getElementById('mute-text');
-
-const aboutBlankBtn = document.getElementById('about-blank-btn');
-
-const userGrid = document.getElementById('user-links-grid');
-const builtInLinksGrid = document.getElementById('built-in-links-grid');
-const customNameInput = document.getElementById('custom-link-name');
-const customUrlInput = document.getElementById('custom-link-url');
-const saveLinkBtn = document.getElementById('save-custom-link-btn');
-
-const backFromG8mesBtn = document.getElementById('to-menu-from-links');
-
-const tabContainer = document.getElementById('mc-tabbed-container');
-const loadTab = document.getElementById('tab-load-btn');
-const createTab = document.getElementById('tab-create-btn');
-const paneCreate = document.getElementById('tab-content-create');
-const paneLoad = document.getElementById('tab-content-load');
-
-const allAudioElements = document.querySelectorAll('audio');
-
-const musicTracks = [
-    document.getElementById('Menu1'),
-    document.getElementById('Menu2'),
-    document.getElementById('Menu3')
-].filter(track => track);
-
-let currentPlayingTrack = null;
-
-const BUILT_IN_LINK_BATCH_SIZE = 100;
-let builtInLinksRendered = 0;
-let builtInLinksLoadMoreButton = null;
-
-const splashes = [
-    "Un🅱️locked & Loaded!",
-    "Now with pr#xies!",
-    "May contain bugs!",
-    "Be a bad sport!",
-    "Love everyone!",
-    "Love is love!",
-    "Stay silly!",
-    "Powered by questionable code!",
-    "May contain pixels!",
-    "Be yourself!",
-    "Probably works!",
-    "Running on vibes!",
-    "Different is cool!",
-    "404: Productivity not found!",
-    "Questionably educational!",
-    "Labels are optional!",
-    "Too cool for school!",
-    "Powered by pure chaos!",
-    "Everyone belongs!",
-    "Nothing suspicious here!",
-    "Keep it lowkey!",
-    "Certified time waster!",
-    "Do what makes you happy!",
-    "Probably not blocked!",
-    "Loading questionable decisions!"
+const $ = id => document.getElementById(id);
+const read = (key, fallback = null) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
+const write = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { toast('Your browser could not save this preference.'); } };
+const WALLPAPERS = [
+    { id: 'windows', name: 'Windows 11', url: 'images/wallpapers/windows11.jpg' },
+    { id: 'playstation', name: 'PlayStation', url: 'images/wallpapers/playstation.jpg' },
+    { id: 'macos', name: 'macOS', url: 'images/wallpapers/macos.jpg' }
 ];
-
-function updateMuteText() {
-    if (!muteText) {
-        return;
-    }
-
-    const isMuted = localStorage.getItem('siteMuted') === 'true';
-
-    muteText.textContent = isMuted ? 'Unmute' : 'Mute';
+const ACCENTS = [['#8edb44','Xbox green'],['#72b6ff','Sky blue'],['#b4a0ff','Violet'],['#ffb86c','Amber'],['#ff8eb5','Rose'],['#e6eaf0','Silver']];
+const DEFAULT_PROFILE = { name: 'Player', wallpaper: 'windows', accent: '#8edb44' };
+let profile = read('gbProfileV1');
+if (!profile || !WALLPAPERS.some(x => x.id === profile.wallpaper) || !ACCENTS.some(x => x[0] === profile.accent)) profile = null;
+let draft = { ...(profile || DEFAULT_PROFILE) };
+let route = 'home';
+let currentSource = 'gn';
+let library;
+let featured = [];
+let lastGame = null;
+let linksPromise;
+let builtin = [];
+let linkMatches = [];
+let linksShown = 0;
+const defaultIcon = $('favicon-link').href;
+let toastTimer;
+function toast(message) { $('toast').textContent = message; $('toast').classList.remove('hidden'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.add('hidden'), 3800); }
+const menuMusic = new Audio('audio/ps4-menu.mp3');
+menuMusic.loop = true;
+menuMusic.preload = 'none';
+const selectSound = new Audio('audio/ps4-select.mp3');
+selectSound.preload = 'auto';
+selectSound.volume = .4;
+let audioUnlocked = false;
+let gameIsOpen = false;
+let musicEnabled = read('gbMusicEnabled', true);
+let musicVolume = Math.min(1, Math.max(0, Number(read('gbMusicVolume', .18)) || 0));
+let musicContext;
+let musicGain;
+let musicSource;
+let lastSelectTime = -Infinity;
+function updateMusicControls() {
+    $('music-toggle').checked = musicEnabled;
+    $('music-shortcut').setAttribute('aria-pressed', String(musicEnabled));
+    const action = musicEnabled ? 'Turn background music off' : 'Turn background music on';
+    $('music-shortcut').setAttribute('aria-label', action);
+    $('music-shortcut').title = action;
+    $('music-waves').classList.toggle('hidden', !musicEnabled);
+    $('music-muted').classList.toggle('hidden', musicEnabled);
+    $('music-volume').value = String(Math.round(musicVolume * 100));
+    $('music-volume-value').textContent = `${Math.round(musicVolume * 100)}%`;
+    if (!musicEnabled) $('music-status').textContent = 'Background music is off.';
+    else if (gameIsOpen) $('music-status').textContent = 'Music is paused while a game is open.';
+    else if (!audioUnlocked) $('music-status').textContent = 'Music starts after your first click or tap.';
+    else if (!menuMusic.paused) $('music-status').textContent = 'Playing softly in the background.';
+    else $('music-status').textContent = 'Music is ready to play.';
 }
-
-function applyMuteState(isMuted) {
-    allAudioElements.forEach(audio => {
-        audio.muted = isMuted;
-    });
-
-    if (muteIcon) {
-        muteIcon.textContent = isMuted ? '🔇' : '🔊';
-    }
-
-    updateMuteText();
-}
-
-function navigateTo(currentView, targetView) {
-    if (clickAudio) {
-        clickAudio.currentTime = 0;
-        clickAudio.play().catch(() => {});
-    }
-
-    if (currentView) {
-        currentView.classList.add('hidden');
-    }
-
-    if (targetView) {
-        targetView.classList.remove('hidden');
-    }
-
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            rebuildMinecraftButtons();
-        });
-    });
-}
-
-function ensureButtonText(button) {
-    const existingText = button.querySelector(':scope > .button-text');
-
-    if (existingText) {
-        return existingText;
-    }
-
-    const textNodes = Array.from(button.childNodes).filter(node => {
-        return (
-            node.nodeType === Node.TEXT_NODE &&
-            node.textContent.trim()
-        );
-    });
-
-    if (textNodes.length === 0) {
-        return null;
-    }
-
-    const textElement = document.createElement('span');
-
-    textElement.className = 'button-text';
-
-    textElement.textContent = textNodes
-        .map(node => node.textContent.trim())
-        .join(' ')
-        .trim();
-
-    textNodes.forEach(node => {
-        node.remove();
-    });
-
-    button.appendChild(textElement);
-
-    return textElement;
-}
-
-function buildMinecraftButton(button) {
-    if (!button) {
-        return;
-    }
-
-    let left = button.querySelector(':scope > .mc-left');
-    let middle = button.querySelector(':scope > .mc-middle');
-    let right = button.querySelector(':scope > .mc-right');
-
-    if (!left) {
-        left = document.createElement('span');
-        left.className = 'mc-left';
-        button.insertBefore(left, button.firstChild);
-    }
-
-    if (!middle) {
-        middle = document.createElement('span');
-        middle.className = 'mc-middle';
-        button.insertBefore(middle, right || null);
-    }
-
-    if (!right) {
-        right = document.createElement('span');
-        right.className = 'mc-right';
-        button.appendChild(right);
-    }
-
-    ensureButtonText(button);
-
-    button.classList.add('mc-stretch-button');
-
-    middle.innerHTML = '';
-
-    // Scale the 313 × 42 source uniformly, then tile its center horizontally.
-    // Wider buttons add tiles; they never stretch the texture sideways.
-    const { width: buttonWidth, height: buttonHeight } = button.getBoundingClientRect();
-    const scale = (buttonHeight || 42) / 42;
-    const capWidth = 5 * scale;
-    const centerWidth = 303 * scale;
-    button.style.setProperty('--mc-sprite-width', `${313 * scale}px`);
-    button.style.setProperty('--mc-sprite-height', `${42 * scale}px`);
-    button.style.setProperty('--mc-cap-width', `${capWidth}px`);
-    button.style.setProperty('--mc-right-offset', `${-308 * scale}px`);
-    button.style.setProperty('--mc-center-offset', `${-capWidth}px`);
-    const middleWidth = Math.max(0, buttonWidth - 2 * capWidth);
-
-    let remaining = middleWidth;
-
-    while (remaining > 0) {
-        const tile = document.createElement('span');
-
-        tile.className = 'mc-middle-tile';
-
-        const tileWidth = Math.min(centerWidth, remaining);
-
-        tile.style.flexBasis = `${tileWidth}px`;
-
-        middle.appendChild(tile);
-
-        remaining -= tileWidth;
-    }
-}
-
-function rebuildMinecraftButtons() {
-    document
-        .querySelectorAll('.custom-button, .btn-close')
-        .forEach(button => {
-            if (button.getBoundingClientRect().width > 0) {
-                buildMinecraftButton(button);
-            }
-        });
-}
-
-function renderBuiltInLinks(reset = false) {
-    if (!builtInLinksGrid) {
-        return;
-    }
-
-    if (reset) {
-        builtInLinksGrid.innerHTML = '';
-        builtInLinksRendered = 0;
-        builtInLinksLoadMoreButton = null;
-    }
-
-    if (builtInLinksLoadMoreButton) {
-        builtInLinksLoadMoreButton.remove();
-        builtInLinksLoadMoreButton = null;
-    }
-
-    const start = builtInLinksRendered;
-    const end = Math.min(
-        start + BUILT_IN_LINK_BATCH_SIZE,
-        links.length
-    );
-
-    const newLinks = [];
-
-    for (let i = start; i < end; i++) {
-        const item = links[i];
-
-        const url = typeof item === 'string'
-            ? item
-            : item.url;
-
-        const name = typeof item === 'string'
-            ? `Unnamed Link ${i + 1}`
-            : (item.name || `Unnamed Link ${i + 1}`);
-
-        const link = document.createElement('a');
-
-        link.href = '#';
-        link.className = 'custom-button target-portal-link';
-
-        const textElement = document.createElement('span');
-
-        textElement.className = 'button-text';
-        textElement.textContent = name;
-
-        link.appendChild(textElement);
-
-        link.addEventListener('click', e => {
-            e.preventDefault();
-
-            if (clickAudio) {
-                clickAudio.currentTime = 0;
-                clickAudio.play().catch(() => {});
-            }
-
-            window.open(url, '_blank', 'noopener,noreferrer');
-        });
-
-        newLinks.push(link);
-    }
-
-    newLinks.forEach(link => {
-        builtInLinksGrid.appendChild(link);
-    });
-
-    builtInLinksRendered = end;
-
-    requestAnimationFrame(() => {
-        newLinks.forEach(link => {
-            buildMinecraftButton(link);
-        });
-
-        if (builtInLinksRendered < links.length) {
-            builtInLinksLoadMoreButton = document.createElement('button');
-
-            builtInLinksLoadMoreButton.className =
-                'custom-button load-more-button';
-
-            const textElement = document.createElement('span');
-
-            textElement.className = 'button-text';
-            textElement.textContent =
-                `Load More (${links.length - builtInLinksRendered} remaining)`;
-
-            builtInLinksLoadMoreButton.appendChild(textElement);
-
-            builtInLinksLoadMoreButton.addEventListener('click', () => {
-                if (clickAudio) {
-                    clickAudio.currentTime = 0;
-                    clickAudio.play().catch(() => {});
-                }
-
-                renderBuiltInLinks(false);
-            });
-
-            builtInLinksGrid.appendChild(
-                builtInLinksLoadMoreButton
-            );
-
-            buildMinecraftButton(
-                builtInLinksLoadMoreButton
-            );
+function prepareMusicOutput() {
+    // A gain node also controls volume on mobile browsers that ignore audio.volume.
+    if (!musicContext) {
+        const AudioContextType = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextType) {
+            musicContext = new AudioContextType();
+            musicSource = musicContext.createMediaElementSource(menuMusic);
+            musicGain = musicContext.createGain();
+            musicSource.connect(musicGain).connect(musicContext.destination);
         }
-    });
-}
-
-// Pick from the entire catalog, including links that have not been rendered yet.
-const luckyButton = document.getElementById('feeling-lucky-btn');
-const luckyStatus = document.getElementById('lucky-status');
-if (luckyButton) {
-    luckyButton.disabled = links.length === 0;
-    if (!links.length && luckyStatus) luckyStatus.textContent = 'No built-in links available yet.';
-    luckyButton.addEventListener('click', () => {
-        if (!links.length) return;
-        const index = Math.floor(Math.random() * links.length);
-        const item = links[index];
-        const url = typeof item === 'string' ? item : item.url;
-        const name = typeof item === 'string' ? `Link ${index + 1}` : (item.name || `Link ${index + 1}`);
-        if (clickAudio) {
-            clickAudio.currentTime = 0;
-            clickAudio.play().catch(() => {});
-        }
-        window.open(url, '_blank', 'noopener,noreferrer');
-        if (luckyStatus) luckyStatus.textContent = `Selected: ${name}`;
-    });
-}
-
-function removeCustomLink(index) {
-    if (clickAudio) {
-        clickAudio.currentTime = 0;
-        clickAudio.play().catch(() => {});
     }
-
-    const saved = JSON.parse(
-        localStorage.getItem('userSavedLinks') || '[]'
-    );
-
-    saved.splice(index, 1);
-
-    localStorage.setItem(
-        'userSavedLinks',
-        JSON.stringify(saved)
-    );
-
-    renderUserSavedLinks();
+    if (musicGain) { menuMusic.volume = 1; musicGain.gain.setValueAtTime(musicVolume, musicContext.currentTime); }
+    else menuMusic.volume = musicVolume;
+    musicContext?.resume().catch(() => {});
 }
-
-function renderUserSavedLinks() {
-    if (!userGrid) {
-        return;
-    }
-
-    userGrid.innerHTML = '';
-
-    const saved = JSON.parse(
-        localStorage.getItem('userSavedLinks') || '[]'
-    );
-
-    if (!saved.length) {
-        const empty = document.createElement('p');
-        empty.className = 'empty-slots';
-        empty.textContent = 'No saved slots. Use Create to add one.';
-        userGrid.appendChild(empty);
-    }
-
-    saved.forEach((item, index) => {
-        const slotWrapper = document.createElement('div');
-
-        slotWrapper.style.position = 'relative';
-        slotWrapper.style.display = 'inline-block';
-        slotWrapper.style.width = '100%';
-
-        const linkAnchor = document.createElement('a');
-
-        linkAnchor.href = '#';
-        linkAnchor.className = 'custom-button mc-stretch-button';
-        linkAnchor.style.width = '100%';
-        linkAnchor.style.boxSizing = 'border-box';
-
-        const left = document.createElement('span');
-        left.className = 'mc-left';
-
-        const middle = document.createElement('span');
-        middle.className = 'mc-middle';
-
-        const right = document.createElement('span');
-        right.className = 'mc-right';
-
-        const textElement = document.createElement('span');
-        textElement.className = 'button-text';
-        textElement.textContent = item.name;
-
-        linkAnchor.appendChild(left);
-        linkAnchor.appendChild(middle);
-        linkAnchor.appendChild(right);
-        linkAnchor.appendChild(textElement);
-
-        linkAnchor.addEventListener('click', e => {
-            e.preventDefault();
-
-            if (clickAudio) {
-                clickAudio.currentTime = 0;
-                clickAudio.play().catch(() => {});
-            }
-
-            window.open(item.url, '_blank', 'noopener,noreferrer');
-        });
-
-        const deleteBtn = document.createElement('button');
-
-        deleteBtn.textContent = 'X';
-        deleteBtn.setAttribute('aria-label', `Delete ${item.name}`);
-        linkAnchor.classList.add('saved-link-button');
-        deleteBtn.style.position = 'absolute';
-        deleteBtn.style.top = '10px';
-        deleteBtn.style.right = '10px';
-        deleteBtn.style.background = '#8b0000';
-        deleteBtn.style.color = '#fff';
-        deleteBtn.style.border = '2px solid #3c3c3c';
-        deleteBtn.style.fontFamily = '"Mojangles", sans-serif';
-        deleteBtn.style.cursor = 'pointer';
-        deleteBtn.style.padding = '4px 8px';
-        deleteBtn.style.zIndex = '10';
-
-        deleteBtn.addEventListener('click', e => {
-            e.stopPropagation();
-            removeCustomLink(index);
-        });
-
-        slotWrapper.appendChild(linkAnchor);
-        slotWrapper.appendChild(deleteBtn);
-
-        userGrid.appendChild(slotWrapper);
-
-        buildMinecraftButton(linkAnchor);
+function syncMusic() {
+    if (!musicEnabled || gameIsOpen || !audioUnlocked) { menuMusic.pause(); updateMusicControls(); return; }
+    try { prepareMusicOutput(); } catch { menuMusic.volume = musicVolume; }
+    if (!menuMusic.paused) { updateMusicControls(); return; }
+    menuMusic.play().then(updateMusicControls).catch(error => {
+        if (error.name === 'AbortError') return;
+        updateMusicControls();
+        if (musicEnabled && !gameIsOpen) $('music-status').textContent = 'Tap the speaker button to start the music.';
     });
 }
-
-function playRandomTrack() {
-    if (currentPlayingTrack) {
-        currentPlayingTrack.pause();
-        currentPlayingTrack.currentTime = 0;
-        currentPlayingTrack.onended = null;
-    }
-
-    if (musicTracks.length === 0) {
-        return;
-    }
-
-    const randomIndex = Math.floor(
-        Math.random() * musicTracks.length
-    );
-
-    currentPlayingTrack = musicTracks[randomIndex];
-
-    const savedMuteSetting =
-        localStorage.getItem('siteMuted') === 'true';
-
-    currentPlayingTrack.muted = savedMuteSetting;
-
-    currentPlayingTrack.play()
-        .then(() => {
-            currentPlayingTrack.onended = () => {
-                playRandomTrack();
-            };
-        })
-        .catch(error => {
-            console.log('Music playback failed:', error);
-        });
+function setMusicEnabled(enabled) {
+    musicEnabled = enabled; write('gbMusicEnabled', enabled); syncMusic();
 }
-
-if (agreeButton) {
-    agreeButton.addEventListener('click', () => {
-        playRandomTrack();
-    });
+function sound() {
+    if (!read('gbSounds', true)) return;
+    const now = performance.now(); if (now - lastSelectTime < 75) return;
+    lastSelectTime = now;
+    selectSound.currentTime = 0;
+    selectSound.play().catch(() => {});
 }
-
-if (toG8mesBtn) {
-    toG8mesBtn.addEventListener('click', e => {
-        e.preventDefault();
-        navigateTo(menuView, g8mesView);
-        selectLinkTab('load');
-    });
+function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    syncMusic();
 }
-
-if (toMenuBtn) {
-    toMenuBtn.addEventListener('click', e => {
-        e.preventDefault();
-        navigateTo(g8mesView, menuView);
-    });
-}
-
-if (toCreditsBtn) {
-    toCreditsBtn.addEventListener('click', e => {
-        e.preventDefault();
-        navigateTo(menuView, creditsView);
-    });
-}
-
-if (creditsExitBtn) {
-    creditsExitBtn.addEventListener('click', e => {
-        e.preventDefault();
-        navigateTo(creditsView, menuView);
-    });
-}
-
-if (toPr8xiesBtn) {
-    toPr8xiesBtn.addEventListener('click', e => {
-        e.preventDefault();
-        navigateTo(menuView, pr8xiesView);
-    });
-}
-
-if (backFromPr8xiesBtn) {
-    backFromPr8xiesBtn.addEventListener('click', e => {
-        e.preventDefault();
-        navigateTo(pr8xiesView, menuView);
-    });
-}
-
-if (toOptionsBtn) {
-    toOptionsBtn.addEventListener('click', e => {
-        e.preventDefault();
-        navigateTo(menuView, optionsView);
-    });
-}
-
-if (backFromOptionsBtn) {
-    backFromOptionsBtn.addEventListener('click', e => {
-        e.preventDefault();
-        navigateTo(optionsView, menuView);
-    });
-}
-
-if (launchBtn && proxyInput && portalFrame) {
-    launchBtn.addEventListener('click', () => {
-        let cleanUrl = proxyInput.value.trim();
-
-        if (!cleanUrl) {
-            return;
-        }
-
-        if (
-            !cleanUrl.startsWith('http://') &&
-            !cleanUrl.startsWith('https://')
-        ) {
-            cleanUrl = 'https://' + cleanUrl;
-        }
-
-        portalFrame.src = cleanUrl;
-    });
-}
-
-if (saveOptionsBtn && titleInput && iconSelect) {
-    saveOptionsBtn.addEventListener('click', () => {
-        if (clickAudio) {
-            clickAudio.currentTime = 0;
-            clickAudio.play().catch(() => {});
-        }
-
-        const userTitle = titleInput.value.trim();
-        const userIcon = iconSelect.value;
-
-        if (userTitle) {
-            document.title = userTitle;
-
-            localStorage.setItem(
-                'customTabTitle',
-                userTitle
-            );
-        } else {
-            document.title = 'New Tab';
-
-            localStorage.removeItem(
-                'customTabTitle'
-            );
-        }
-
-        if (faviconElement) {
-            if (userIcon) {
-                localStorage.setItem(
-                    'customTabIcon',
-                    userIcon
-                );
-
-                faviconElement.setAttribute(
-                    'href',
-                    userIcon
-                );
-            } else {
-                localStorage.removeItem(
-                    'customTabIcon'
-                );
-
-                faviconElement.setAttribute(
-                    'href',
-                    'favicon.ico'
-                );
-
-                faviconElement.setAttribute(
-                    'type',
-                    'image/x-icon'
-                );
-            }
-        }
-
-        alert('Disguise applied successfully!');
-    });
-}
-
-if (aboutBlankBtn) {
-    aboutBlankBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-
-        // Open a new blank tab
-        const win = window.open('about:blank', '_blank');
-
-        if (!win) {
-            alert('Pop-up blocked! Please allow pop-ups for this site to use about:blank mode.');
-            return;
-        }
-
-        const doc = win.document;
-        doc.open();
-
-        // Set base URL so relative images, CSS, and resources load correctly
-        const baseUrl = window.location.href;
-
-        doc.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <base href="${baseUrl}">
-                <title>${document.title}</title>
-                <style>
-                    html, body {
-                        margin: 0;
-                        padding: 0;
-                        width: 100vw;
-                        height: 100vh;
-                        overflow: hidden;
-                        background-color: #000;
-                    }
-                    iframe {
-                        width: 100%;
-                        height: 100%;
-                        border: none;
-                    }
-                </style>
-            </head>
-            <body>
-                <iframe src="${baseUrl}"></iframe>
-            </body>
-            </html>
-        `);
-
-        doc.close();
-
-        // Optional: Redirect current page to a safe cover page (e.g., Google)
-        window.location.replace('https://www.google.com');
-    });
-}
-
-if (muteBtn) {
-    muteBtn.addEventListener('click', () => {
-        const currentMuted =
-            localStorage.getItem('siteMuted') === 'true';
-
-        const nextMuteState = !currentMuted;
-
-        localStorage.setItem(
-            'siteMuted',
-            nextMuteState
-        );
-
-        applyMuteState(nextMuteState);
-    });
-}
-
-if (saveLinkBtn && customNameInput && customUrlInput) {
-    saveLinkBtn.addEventListener('click', () => {
-        if (clickAudio) {
-            clickAudio.currentTime = 0;
-            clickAudio.play().catch(() => {});
-        }
-
-        const name = customNameInput.value.trim();
-        let url = customUrlInput.value.trim();
-
-        if (!name || !url) {
-            return;
-        }
-
-        if (
-            !url.startsWith('http://') &&
-            !url.startsWith('https://')
-        ) {
-            url = 'https://' + url;
-        }
-
-        const saved = JSON.parse(
-            localStorage.getItem('userSavedLinks') || '[]'
-        );
-
-        saved.push({
-            name: name,
-            url: url
-        });
-
-        localStorage.setItem(
-            'userSavedLinks',
-            JSON.stringify(saved)
-        );
-
-        customNameInput.value = '';
-        customUrlInput.value = '';
-
-        renderUserSavedLinks();
-    });
-}
-
-if (backFromG8mesBtn) {
-    backFromG8mesBtn.addEventListener('click', e => {
-        e.preventDefault();
-
-        navigateTo(g8mesView, menuView);
-
-        window.location.hash = 'menu';
-    });
-}
-
-function selectLinkTab(mode, playSound = false) {
-    if (playSound && clickAudio) {
-        clickAudio.currentTime = 0;
-        clickAudio.play().catch(() => {});
-    }
-    const loading = mode === 'load';
-    tabContainer.classList.toggle('mc-tab-bg-load', loading);
-    tabContainer.classList.toggle('mc-tab-bg-create', !loading);
-    paneLoad.style.display = loading ? 'block' : 'none';
-    paneCreate.style.display = loading ? 'none' : 'block';
-    loadTab.setAttribute('aria-selected', String(loading));
-    createTab.setAttribute('aria-selected', String(!loading));
-    loadTab.tabIndex = loading ? 0 : -1;
-    createTab.tabIndex = loading ? -1 : 0;
-    if (loading) {
-        if (builtInLinksRendered === 0) renderBuiltInLinks(true);
-        renderUserSavedLinks();
-    }
-    requestAnimationFrame(rebuildMinecraftButtons);
-}
-
-[loadTab, createTab].forEach((tab, index) => {
-    tab.addEventListener('click', () => selectLinkTab(index === 0 ? 'load' : 'create', true));
-    tab.addEventListener('keydown', event => {
-        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-        event.preventDefault();
-        const next = event.key === 'Home' ? loadTab : event.key === 'End' ? createTab : index === 0 ? createTab : loadTab;
-        selectLinkTab(next === loadTab ? 'load' : 'create', true);
-        next.focus();
-    });
+document.addEventListener('click', event => {
+    if (!event.isTrusted) return;
+    unlockAudio();
+    if (event.target.closest('button, a, input[type="checkbox"]')) sound();
+}, true);
+document.addEventListener('keydown', event => {
+    if (['Tab', 'Enter', ' '].includes(event.key)) unlockAudio();
+}, true);
+$('music-shortcut').addEventListener('click', () => setMusicEnabled(!musicEnabled));
+$('music-toggle').addEventListener('change', event => setMusicEnabled(event.target.checked));
+$('music-volume').addEventListener('input', event => {
+    musicVolume = Number(event.target.value) / 100;
+    write('gbMusicVolume', musicVolume);
+    syncMusic();
 });
-
-document.addEventListener('DOMContentLoaded', () => {
-    const savedTitle =
-        localStorage.getItem('customTabTitle');
-
-    const savedIcon =
-        localStorage.getItem('customTabIcon');
-
-    if (savedTitle) {
-        document.title = savedTitle;
-
-        if (titleInput) {
-            titleInput.value = savedTitle;
-        }
-    }
-
-    if (savedIcon && faviconElement) {
-        faviconElement.setAttribute(
-            'href',
-            savedIcon
-        );
-
-        if (iconSelect) {
-            iconSelect.value = savedIcon;
-        }
-    }
-
-    const savedMuteSetting =
-        localStorage.getItem('siteMuted') === 'true';
-
-    applyMuteState(savedMuteSetting);
-
-    renderUserSavedLinks();
-
-    const splashElements =
-        document.querySelectorAll('.splash-text');
-
-    if (splashElements.length > 0) {
-        const randomIndex =
-            Math.floor(
-                Math.random() * splashes.length
-            );
-
-        const chosenSplash =
-            splashes[randomIndex];
-
-        splashElements.forEach(element => {
-            element.textContent = chosenSplash;
-        });
-    }
-
-    if (modal) {
-        modal.showModal();
-    }
-
-    const backgrounds = [
-        'images/background.png',
-        'images/background2.png',
-        'images/background3.png',
-        'images/background4.png'
-    ];
-
-    const randomBgIndex =
-        Math.floor(
-            Math.random() * backgrounds.length
-        );
-
-    document.body.style.backgroundImage =
-        `url('${backgrounds[randomBgIndex]}')`;
-
-    requestAnimationFrame(() => {
-        rebuildMinecraftButtons();
+menuMusic.addEventListener('playing', updateMusicControls);
+menuMusic.addEventListener('pause', updateMusicControls);
+menuMusic.addEventListener('error', () => { $('music-status').textContent = 'The music could not be loaded. Try refreshing the page.'; });
+updateMusicControls();
+// Cancel an interrupted animation before starting the next interaction.
+const activeMotions = new Map();
+const reducedMotion = () => document.body.classList.contains('reduce-motion') || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function animateElement(element, frames, options = {}) {
+    if (!element) return Promise.resolve();
+    activeMotions.get(element)?.cancel();
+    if (reducedMotion() || !element.animate) return Promise.resolve();
+    const animation = element.animate(frames, { duration: 240, easing: 'cubic-bezier(.2,.75,.2,1)', ...options });
+    activeMotions.set(element, animation);
+    return animation.finished.catch(() => {}).finally(() => {
+        if (activeMotions.get(element) === animation) activeMotions.delete(element);
+        animation.cancel();
     });
-});
-
-window.addEventListener('resize', () => {
-    rebuildMinecraftButtons();
-});
-
-window.addEventListener('load', () => {
-    rebuildMinecraftButtons();
-});
-
-let resumeMenuMusic = false;
-initializeGnMath({
-    rebuildButtons: rebuildMinecraftButtons,
-    onOpen() {
-        resumeMenuMusic = Boolean(currentPlayingTrack && !currentPlayingTrack.paused);
-        if (resumeMenuMusic) currentPlayingTrack.pause();
-    },
-    onClose() {
-        if (resumeMenuMusic && currentPlayingTrack) currentPlayingTrack.play().catch(() => {});
-        resumeMenuMusic = false;
+}
+function reveal(element) {
+    return animateElement(element, [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'translateY(0)' }]);
+}
+function updateIndicators() {
+    for (const [container, selected] of [
+        [document.querySelector('.topbar nav'), document.querySelector('.nav-item.active')],
+        [document.querySelector('.provider-tabs'), document.querySelector('[data-source][aria-selected="true"]')]
+    ]) {
+        if (!container) continue;
+        if (!selected) { container.classList.remove('indicator-ready'); continue; }
+        if (!selected.offsetWidth) continue;
+        container.style.setProperty('--indicator-x', `${selected.offsetLeft}px`);
+        container.style.setProperty('--indicator-width', `${selected.offsetWidth}px`);
+        container.classList.add('indicator-ready');
     }
+}
+window.addEventListener('resize', () => requestAnimationFrame(updateIndicators));
+new MutationObserver(updateIndicators).observe(document.querySelector('.provider-tabs'), { subtree: true, attributes: true, attributeFilter: ['aria-selected'] });
+let setupClosing = false;
+async function closePersonalize() {
+    if (setupClosing) return;
+    const dialog = $('personalize-dialog');
+    setupClosing = true;
+    try {
+        await animateElement(dialog, [{ opacity: 1, transform: 'translateY(0) scale(1)' }, { opacity: 0, transform: 'translateY(5px) scale(.985)' }], { duration: 140, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' });
+        dialog.close();
+    } finally { setupClosing = false; }
+}
+function updateChoices() {
+    document.querySelectorAll('.accent-choice').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.accent === draft.accent)));
+    document.querySelectorAll('.wallpaper-choice').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.wallpaper === draft.wallpaper)));
+}
+function applyProfile(value) {
+    const wallpaper = WALLPAPERS.find(x => x.id === value.wallpaper) || WALLPAPERS[0];
+    document.documentElement.style.setProperty('--wallpaper', `url("${wallpaper.url}")`);
+    document.documentElement.style.setProperty('--accent', value.accent);
+    $('welcome-name').textContent = value.name || 'Player';
+    $('profile-name').textContent = value.name || 'Player';
+    $('profile-avatar').textContent = (value.name || 'P').slice(0, 1).toUpperCase();
+}
+function renderChoices() {
+    $('accent-choices').replaceChildren(...ACCENTS.map(([color,name]) => {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'accent-choice';
+        button.dataset.accent = color; button.style.setProperty('--choice', color); button.setAttribute('aria-label', name); button.setAttribute('aria-pressed', String(draft.accent === color));
+        button.addEventListener('click', () => { draft.accent = color; applyProfile(draft); updateChoices(); }); return button;
+    }));
+    $('wallpaper-choices').replaceChildren(...WALLPAPERS.map(wallpaper => {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'wallpaper-choice';
+        button.dataset.wallpaper = wallpaper.id; button.setAttribute('aria-label', `${wallpaper.name} wallpaper`); button.setAttribute('aria-pressed', String(draft.wallpaper === wallpaper.id));
+        const image = document.createElement('img'); image.src = wallpaper.url; image.alt = '';
+        const label = document.createElement('span'); label.textContent = wallpaper.name; button.append(image,label);
+        button.addEventListener('click', () => { draft.wallpaper = wallpaper.id; applyProfile(draft); updateChoices(); }); return button;
+    }));
+}
+function personalize() {
+    if (setupClosing || $('personalize-dialog').open) return;
+    draft = { ...(profile || DEFAULT_PROFILE) };
+    $('display-name-input').value = profile?.name || '';
+    $('setup-title').textContent = profile ? 'Your dashboard. Your rules.' : 'Make yourself at home.';
+    $('setup-eyebrow').textContent = profile ? 'PERSONALIZE YOUR SPACE' : 'WELCOME TO YOUR BUNKER';
+    $('setup-cancel').textContent = profile ? 'Cancel' : 'Use defaults';
+    $('setup-save').firstChild.textContent = profile ? 'Save changes ' : "Let's play ";
+    renderChoices(); $('personalize-dialog').showModal();
+    animateElement($('personalize-dialog'), [{opacity:0,transform:'translateY(10px) scale(.975)'},{opacity:1,transform:'translateY(0) scale(1)'}], {duration:260});
+}
+$('personalize-form').addEventListener('submit', event => {
+    event.preventDefault(); if (setupClosing) return; draft.name = $('display-name-input').value.trim() || 'Player';
+    profile = { ...draft }; write('gbProfileV1', profile); applyProfile(profile); closePersonalize(); sound();
 });
+$('setup-cancel').addEventListener('click', () => {
+    if (setupClosing) return;
+    if (!profile) { profile = { ...DEFAULT_PROFILE }; write('gbProfileV1', profile); }
+    applyProfile(profile); closePersonalize();
+});
+$('personalize-dialog').addEventListener('cancel', event => {
+    event.preventDefault();
+    if (profile) { applyProfile(profile); closePersonalize(); }
+});
+$('display-name-input').addEventListener('input', () => { draft.name = $('display-name-input').value.trim() || 'Player'; applyProfile(draft); });
+for (const id of ['profile-btn','home-personalize','settings-personalize']) $(id).addEventListener('click', personalize);
+function showView(name) {
+    if (!['home','games','links','settings','credits'].includes(name)) name = 'home';
+    const changed = route !== name;
+    route = name;
+    document.querySelectorAll('main>.page').forEach(page => page.classList.toggle('hidden', page.id !== `view-${name}`));
+    document.querySelectorAll('.nav-item').forEach(button => {
+        const active = button.dataset.view === name; button.classList.toggle('active', active);
+        if (active) button.setAttribute('aria-current','page'); else button.removeAttribute('aria-current');
+    });
+    updateIndicators();
+    if (changed) reveal($(`view-${name}`));
+    try { window.parent.location.hash = name; } catch {}
+    if (name === 'links') loadWebsites();
+    window.scrollTo({top:0,behavior:'instant'});
+}
+document.addEventListener('click', event => {
+    const nav = event.target.closest('[data-view]');
+    if (nav) { event.preventDefault(); sound(); showView(nav.dataset.view); }
+});
+function updateClock() { $('dashboard-clock').textContent = new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).format(new Date()); }
+updateClock(); setInterval(updateClock,30000);
+$('sound-toggle').checked = read('gbSounds',true);
+$('sound-toggle').addEventListener('change', event => { write('gbSounds',event.target.checked); sound(); });
+$('motion-toggle').checked = read('gbReduceMotion',false);
+document.body.classList.toggle('reduce-motion',$('motion-toggle').checked);
+$('motion-toggle').addEventListener('change',event => { write('gbReduceMotion',event.target.checked); document.body.classList.toggle('reduce-motion',event.target.checked); if (event.target.checked) for (const motion of activeMotions.values()) motion.cancel(); });
+try { $('tab-title-input').value = localStorage.getItem('customTabTitle') || ''; $('tab-icon-select').value = localStorage.getItem('customTabIcon') || ''; } catch {}
+function applyTab() { document.title = $('tab-title-input').value.trim() || 'Geeks Bunker'; $('favicon-link').href = $('tab-icon-select').value || defaultIcon; }
+applyTab();
+$('tab-settings-form').addEventListener('submit',event => {
+    event.preventDefault(); applyTab();
+    try { localStorage.setItem('customTabTitle',$('tab-title-input').value.trim()); localStorage.setItem('customTabIcon',$('tab-icon-select').value); } catch {}
+    $('tab-status').textContent = 'Tab settings saved.';
+});
+$('about-blank-btn').addEventListener('click', () => {
+    const win = window.open('about:blank','_blank'); if (!win) return toast('Allow pop-ups to open a blank tab.');
+    win.document.title = document.title;
+    Object.assign(win.document.body.style,{margin:'0',height:'100vh',background:'#101318'});
+    const frame = win.document.createElement('iframe'); frame.src = document.baseURI;
+    Object.assign(frame.style,{width:'100%',height:'100%',border:'0'}); frame.allow = 'fullscreen; autoplay; gamepad; clipboard-write'; frame.allowFullscreen = true;
+    win.document.body.append(frame);
+    window.parent.location.replace('https://www.google.com');
+});
+function renderSaved() {
+    const saved = read('userSavedLinks',[]);
+    $('user-links-grid').replaceChildren();
+    if (!Array.isArray(saved) || !saved.length) { const p = document.createElement('p'); p.className='muted'; p.textContent='Keep your favorites close. Save a website to get started.'; $('user-links-grid').append(p); return; }
+    saved.forEach((item,index) => {
+        const row=document.createElement('div'); row.className='saved-link';
+        const link=document.createElement('a'); link.textContent=item.name; link.href=item.url; link.target='_blank'; link.rel='noopener noreferrer';
+        const remove=document.createElement('button'); remove.className='delete-link'; remove.textContent='×'; remove.setAttribute('aria-label',`Delete ${item.name}`);
+        remove.addEventListener('click',()=>{ saved.splice(index,1); write('userSavedLinks',saved); renderSaved(); }); row.append(link,remove); $('user-links-grid').append(row);
+    });
+}
+$('save-link-form').addEventListener('submit',event => {
+    event.preventDefault();
+    try {
+        let url=$('custom-link-url').value.trim(); if (!/^https?:\/\//i.test(url)) url='https://'+url;
+        const parsed=new URL(url); if (!['http:','https:'].includes(parsed.protocol)) throw new Error();
+        const saved=read('userSavedLinks',[]); saved.push({name:$('custom-link-name').value.trim(),url:parsed.href}); write('userSavedLinks',saved);
+        $('save-link-form').reset(); $('link-feedback').textContent='Website saved.'; renderSaved();
+    } catch { $('link-feedback').textContent='Enter a valid website URL.'; }
+});
+async function getLinks() {
+    if (!linksPromise) linksPromise=(async()=>{
+        const embedded=$('embedded-links');
+        if (embedded) {
+            const bytes=Uint8Array.from(atob(embedded.textContent.trim()),char=>char.charCodeAt(0));
+            return JSON.parse(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
+        }
+        return (await import('./links.js')).links;
+    })().catch(error=>{linksPromise=null;throw error;});
+    return linksPromise;
+}
+function appendWebsites() {
+    const fragment=document.createDocumentFragment(); const batch=linkMatches.slice(linksShown,linksShown+100);
+    for(const item of batch) { const button=document.createElement('button'); button.className='website-link'; button.textContent=item.name||'Website'; button.addEventListener('click',()=>window.open(typeof item==='string'?item:item.url,'_blank','noopener,noreferrer')); fragment.append(button); }
+    linksShown+=batch.length; $('built-in-links-grid').append(fragment); $('website-more').classList.toggle('hidden',linksShown>=linkMatches.length);
+    $('builtin-count').textContent=`${linkMatches.length.toLocaleString()} websites · ${linksShown.toLocaleString()} shown`;
+}
+function filterWebsites() { const query=$('website-search').value.trim().toLowerCase(); linkMatches=builtin.filter(x=>`${x.name} ${x.url}`.toLowerCase().includes(query)); linksShown=0; $('built-in-links-grid').replaceChildren(); appendWebsites(); }
+async function loadWebsites() {
+    renderSaved(); $('builtin-count').textContent='Loading collection...';
+    try { builtin=await getLinks(); filterWebsites(); } catch { $('builtin-count').textContent='Collection unavailable. Select Websites to retry.'; }
+}
+$('website-search').addEventListener('input',filterWebsites); $('website-more').addEventListener('click',appendWebsites);
+$('feeling-lucky-btn').addEventListener('click',async()=>{
+    const win=window.open('about:blank','_blank'); if(!win)return toast('Allow pop-ups to open a random website.');
+    try { const all=await getLinks(); const item=all[Math.floor(Math.random()*all.length)]; win.opener=null; win.location.href=typeof item==='string'?item:item.url; } catch { win.close();toast('Could not load the website collection.'); }
+});
+function renderFeatured(games) {
+    const picks=[1,6,114,82].map(id=>games.find(g=>g.id===id)).filter(Boolean); featured=picks.length===4?picks:games.slice(0,4);
+    $('featured-games').replaceChildren(...featured.map(game=>{
+        const card=document.createElement('button'); card.className='featured-card'; card.setAttribute('aria-label',`Play ${game.name}`);
+        const image=document.createElement('img'); image.src=game.cover; image.alt=''; image.addEventListener('error',()=>image.remove(),{once:true});
+        const label=document.createElement('span'); label.className='featured-caption';label.textContent=game.name;
+        card.append(image,label); card.addEventListener('click',()=>library.launch(game,card)); return card;
+    }));
+}
+document.addEventListener('catalogready',event=>{ if(event.detail.source==='gn') renderFeatured(event.detail.games); });
+document.addEventListener('gameplayed',event=>{ lastGame=event.detail; write('gbRecentGame',{name:lastGame.name,source:lastGame.provider||'gn',id:lastGame.id}); updateRecent(); });
+function updateRecent() { const recent=read('gbRecentGame'); if(recent){$('recent-title').textContent=recent.name;$('recent-description').textContent=`Continue from ${recent.source==='lumin'?'Lumin':'GN Math'}`;} }
+$('recent-game').addEventListener('click',async()=>{
+    if(lastGame)return library.launch(lastGame,$('recent-game'));
+    const recent=read('gbRecentGame'); if(recent){showView('games');await library.setSource(recent.source);const game=library.getGames().find(x=>String(x.id)===String(recent.id));if(game)return library.launch(game,$('recent-game'));} else showView('games');
+});
+for(const button of document.querySelectorAll('[data-source]'))button.addEventListener('click',()=>{sound();currentSource=button.dataset.source;library.setSource(currentSource);});
+document.querySelectorAll('[data-source]').forEach(button=>button.addEventListener('keydown',event=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    event.preventDefault();const next=event.key==='Home'?'gn':event.key==='End'?'lumin':button.dataset.source==='gn'?'lumin':'gn';
+    library.setSource(next);document.querySelector(`[data-source="${next}"]`).focus();
+}));
+library=initializeGnMath({
+    rebuildButtons:()=>{},
+    onOpen:()=>{ gameIsOpen=true; syncMusic(); reveal($('gn-game-player')); },
+    onClose:()=>{ gameIsOpen=false; syncMusic(); reveal($(`view-${route}`)); },
+    playSound:sound
+});
+applyProfile(profile||DEFAULT_PROFILE);updateRecent();
+let initial='home';try{initial=window.parent.location.hash.slice(1)||'home';}catch{}showView(initial);
+if(!profile)personalize();

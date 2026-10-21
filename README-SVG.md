@@ -1,106 +1,137 @@
-# Geeks Bunker SVG + GN Math
+# Geeks Bunker — Dark Liquid Glass edition
 
-Open `index.svg` directly in a browser. It runs the existing website inside an SVG
-document, keeping the Minecraft console interface, artwork, and other menus.
-Play G8mes now uses GN Math instead of the old local g8mes.json list.
+The Minecraft interface has been replaced by a modern console dashboard with
+horizontal navigation, a game row, quick-access tiles, and your supplied artwork.
+The current finish uses dark translucent materials, backdrop blur and saturation,
+very low surface tint, lighter blur, soft edge highlights, inset glass cover labels, rounded navigation, and system
+typography inspired by iOS/macOS. Custom accent colors and wallpapers are retained.
 
-## GN Math
+## The file to upload
 
-The implementation follows the supplied Opium reference's GN Math integration:
+`index.svg` is now a standalone app file, approximately 16 MB. It embeds:
 
-- Fetch its GN Math catalog mirror at
-  https://cdn.jsdelivr.net/gh/freebuisness/assets@main/zones.json
-- Resolve game HTML from `freebuisness/html` and covers from `freebuisness/covers`.
-- Fetch each game's HTML as text, retain its existing asset base (or add one),
-  and run the document inside an in-page iframe. This lets games execute even
-  though jsDelivr serves raw .html URLs as plain text.
-- Fall back to the upstream `gn-math` GitHub catalog and raw game sources if the
-  primary catalog/game source is unavailable.
+- The complete dashboard HTML, stylesheet, application code, GN Math adapter,
+  and Lumin adapter.
+- Optimized copies of all three supplied wallpapers: Windows 11, PlayStation,
+  and macOS. The original files in Downloads were not modified.
+- The exact supplied PS4 background theme and select sound, embedded as MP3.
+- The original 72,000-website collection, compressed inside the SVG. The app
+  decompresses it when Websites is opened.
 
-The gallery has searchable covers, alphabetical ordering, 60-game batches, a game
-count, and Load More. Community announcement/comment entries are excluded.
-The player has Reload, Fullscreen, Back, and loading/error/retry controls.
-Fullscreen hides the entire player toolbar. Press Escape to exit fullscreen and
-restore the toolbar.
-Menu music pauses while playing and resumes when returning. Back removes the
-iframe to stop the game's scripts and audio, and preserves the search/results.
+No neighboring images, fonts, audio, or JavaScript files are needed to run the SVG.
+Games, covers, catalogs, and the official Lumin SDK still load from their online
+providers. This is an interactive SVG document with an embedded HTML application;
+open it directly in a browser or in an iframe/object, not an img element.
 
-There were 839 playable catalog entries during verification. The catalog is live;
-its count and third-party game availability can change. Game saves use whatever
-storage each game implements, under the browser origin hosting the site.
-
-Reference supplied by the user:
-https://cdn.jsdelivr.net/gh/Mtreasur0133-bit/Shenplslike-1@main/assets/v0001/opium.svg?id=1
-
-Only its GN Math catalog/player approach is used. The other Geeks Bunker menus
-keep their existing behavior. `g8mes.json` and its generator are retained for your
-files, but Play G8mes no longer depends on the missing local Eaglercraft file.
-
-## jsDelivr deployment
-
-Upload/commit the generated `index.svg` beside these existing assets:
-
-```
-index.svg
-links.js
-mojangles.otf
-images/
-audio/
-```
-
-After pushing the files to main, use:
+After committing and pushing index.svg, the existing deployment target remains:
 https://cdn.jsdelivr.net/gh/idontknow73671/Geeks-bunker@main/index.svg
 
-This is a deployment target; no commit, push, or live deployment was performed.
-For a stable release, replace main with the full commit SHA containing the files.
-The SVG bundles the page, CSS, application module, and GN Math module. The large
-website-link catalog, music, images, and font remain separate, so the generated
-file stays well below jsDelivr's 20 MB GitHub file limit.
+For an immutable release, replace main with the commit SHA. No commit, push, or
+live deployment was performed as part of this redesign.
 
-Open the SVG directly or embed it in an iframe/object. An img element disables
-SVG scripting and cannot run the interactive website. Avoid automatic .min.svg
-conversion for this entry point.
+## Personalization
 
-jsDelivr documentation: https://github.com/jsdelivr/jsdelivr#github
+First visit opens a setup screen with a display name, six accent colors, and the
+three supplied wallpapers. The selections preview immediately and persist in the
+browser. Reopen setup from the profile button, Home > Make it yours, or Settings.
+Cancel restores the saved profile; Use defaults completes first-time setup.
+Settings also provides separate background-music and PS4-select-sound switches,
+a music volume slider, reduced motion,
+custom tab title/icon, and the existing about:blank launcher.
 
-## Rebuild and local preview
+There is no active Minecraft artwork, pixel font, textured button treatment, or
+Minecraft soundtrack. Legacy assets remain in the source checkout so existing
+files are not destroyed, but the dashboard does not reference them.
 
-Edit `index.html`, `style.css`, `script.js`, or `gn-math.js`, then run:
+Existing saved website slots and browser-tab preferences are retained under the
+same localStorage keys. Website search, custom links/deletion, the full collection,
+Feeling lucky, credits, GitHub, and Discord links remain available. Storage is
+per browser origin; changing hostnames does not transfer browser settings.
+
+## Supplied PS4 audio
+
+The supplied ten-minute PS4 theme loops quietly at 18% volume. It starts after a
+click, tap, or keyboard interaction; the browser never needs autoplay permissions
+to be changed. The speaker button in the header turns music on/off immediately.
+Settings provides a second switch and a volume slider; these preferences persist.
+Menu music pauses during a game and resumes when returning to the dashboard.
+
+The supplied PS4 select MP3 replaces the synthesized tick on interface actions.
+Select sounds have their own switch and remain independent of the music setting.
+Duplicate calls during the same selection are suppressed to avoid doubled sounds.
+
+The source audio copies are audio/ps4-menu.mp3 and audio/ps4-select.mp3. The files
+in Downloads are untouched. Both are included in index.svg, keeping the app a
+single file. The approximately 16 MB output remains below the 20 MB GitHub-file
+limit used by jsDelivr. Existing interface settings and game integrations remain.
+
+## Both game libraries
+
+GN Math is retained as its own tab, using the catalog/player approach from the
+previously supplied Opium reference. Game HTML is fetched and run in an iframe,
+with its asset base preserved or supplied. Fallback sources and retry remain.
+
+Lumin uses the official SDK as in the supplied Nocturne reference:
+
+- SDK: https://cdn.jsdelivr.net/gh/luminsdk/script@main/lumin.min.js
+- Lumin.init({headless:true})
+- Lumin.getGames({page,limit:100}), including paginated results
+- Lumin.getImageUrl(image_token) for visible game covers
+- Lumin.getGameUrl(id) to launch a game in the shared player
+
+The adapters keep provider catalogs separate. Each has search, game counts, lazy
+covers, 60-game batches, and Load more. Home shows featured GN Math games and the
+most recently played game. Recent-game metadata persists across reloads.
+
+The shared player provides Reload, Fullscreen, and Back to library. Fullscreen
+hides the complete toolbar; Escape restores it. Closing the player removes the
+iframe to stop the game's scripts/audio. The search and page behind it are kept.
+Provider availability, host permissions, and game-specific browser requirements
+remain controlled by the upstream services; an error in one provider leaves the
+other provider accessible.
+
+Reference: https://cdn.jsdelivr.net/gh/dorianhagar506-coder/nocturne-ud77zk@main/Nocturne-1-1-2tai.svg
+Only the Lumin SDK integration is used; the reference's advertising scripts and
+application branding are not included.
+
+## Source and rebuilding
+
+Keep these source files for editing: index.html, style.css, script.js, gn-math.js,
+lumin.js, build-svg.py, links.js, images/wallpapers/, and the two audio/ps4-*.mp3 files.
 
 ```
 python3 build-svg.py
-```
-
-No third-party Python packages are needed. Keep the source files, including
-`gn-math.js`, for rebuilding and for running the original HTML entry point.
-Changes to links.js, images, fonts, and audio do not need an SVG rebuild.
-
-Preview using HTTP rather than double-clicking the file:
-
-```
 python3 -m http.server 8766 --bind 127.0.0.1
 ```
 
-Open http://127.0.0.1:8766/index.svg or index.html.
-
-Saved slots, mute state, and tab settings still use localStorage. Settings from
-one hostname do not automatically transfer to a different browser origin.
+Open http://127.0.0.1:8766/index.svg. The builder uses only Python's standard
+library. index.html remains an editable HTML entry point using the source modules
+and wallpaper files; only the generated SVG embeds everything.
 
 ## Verification
 
-- Validated XML and JavaScript syntax, generated CSS/source inclusion, relative
-  asset bases, existing bases, wrapped HTML documents, invalid-source rejection,
-  and canceled requests.
-- Browser checked the live 839-game catalog, loading another 60 games, case
-  insensitive search, empty results, covers, and responsive gallery/player layout
-  at 390x844 and 1280x720.
-- Ran 2048 inside index.svg, verified its score changed, reloaded it, entered and
-  exited fullscreen, and returned to the same search results. OvO also reached
-  its rendered game menu, though its upstream unlockalllevels.js emitted errors.
-  Checked the HTML entry point's catalog as well.
-- The full external catalog was not individually playtested. Game-specific
-  browser/WebGL requirements and upstream outages still apply.
-- Earlier SVG conversion checks covered menu navigation, saved slots, credits,
-  mute, and tab title/icon options. The about:blank launcher created its popup
-  and redirected the original tab, but the in-app browser did not expose that
-  popup for further inspection; interaction inside it remains a manual check.
+- Verified actual browser music playback after interaction, mute/unmute, saved
+  mute across reloads, the volume slider, independent select-sound preference, and
+  resuming music after gameplay. The audio files embedded in the SVG exactly match
+  the supplied originals.
+- Tested audio logic for looping, first-interaction startup, soft gain, saved music
+  preferences, select-sound deduplication, independent mute, and game pause/resume.
+- Validated SVG XML, generated JavaScript syntax, all 72,000 embedded links,
+  all three embedded wallpapers, and the absence of active Minecraft styling.
+- Tested setup selections, live preview, saving, reopening, and reload persistence.
+- Browser checked desktop 1280x720 and mobile 390x844 layouts, including the
+  dark glass dashboard, setup dialog, library controls, and text readability.
+- Both live catalogs connected: 839 GN Math entries and 795 Lumin entries during
+  verification. Counts and third-party availability can change.
+- Launched 2048 through Lumin and verified keyboard play increased its score.
+  Launched GN Math's 2048 and verified gameplay, toolbar-free fullscreen, Escape,
+  and returning to the dashboard. The full catalogs were not individually tested.
+- Verified the 72,000-link collection, saved-link creation/deletion, and existing
+  settings controls. Checked the SVG from a directory containing only index.svg,
+  proving the dashboard and collection do not depend on neighboring assets.
+- Tested adapter helpers for asset bases, wrapped HTML, invalid-source rejection,
+  canceled requests, Lumin pagination/deduplication, cover tokens, and game URLs.
+- The existing about:blank popup mechanism is retained; a complete interaction
+  check inside that separate popup remains a manual browser check.
+
+Interaction motion uses short eased button presses, sliding navigation and provider indicators, and soft page and dialog entrances. Customization choices keep keyboard focus as their selection changes. Both the system reduced-motion preference and the dashboard Reduce motion setting disable these effects.
