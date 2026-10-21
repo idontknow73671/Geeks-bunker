@@ -7,6 +7,7 @@
 <title>Geeks Bunker</title>
 <link id="favicon-link" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%238edb44'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-size='36' font-family='Arial' font-weight='bold'%3EG%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
+<script src="geekfox-engine.js"></script>
 <script type="module" src="script.js"></script>
 </head>
 <body>
@@ -17,6 +18,7 @@
   <button data-view="home" class="nav-item active" aria-current="page">Home</button>
   <button data-view="games" class="nav-item">Game library</button>
   <button data-view="links" class="nav-item">Websites</button>
+  <button data-view="p8y" class="nav-item">Geekfox</button>
   <button data-view="settings" class="nav-item">Settings</button>
  </nav>
  <div class="header-tools"><time id="dashboard-clock"></time><button id="music-shortcut" class="music-shortcut" aria-label="Turn background music off" aria-pressed="true" title="Turn background music off"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4Z"/><path id="music-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path id="music-muted" class="hidden" d="m16 9 5 6m0-6-5 6"/></svg></button><button id="profile-btn" class="profile-button" aria-label="Customize your profile"><span class="avatar" id="profile-avatar">P</span><span id="profile-name">Player</span></button></div>
@@ -24,17 +26,23 @@
 <main>
  <section id="view-home" class="page home-page">
   <div class="welcome"><p class="eyebrow">YOUR SPACE. YOUR GAMES.</p><h1>Welcome back, <span id="welcome-name">Player</span>.</h1><p>Something good to play. A place that feels like you.</p></div>
-  <div class="section-heading"><h2>Jump into a game</h2><button class="text-button" data-view="games">View all games <span aria-hidden="true">→</span></button></div>
+  <div class="section-heading"><h2>Jump back in</h2><button class="text-button" data-view="games">View all games <span aria-hidden="true">→</span></button></div>
+
   <div class="home-strip" id="home-games">
-   <button class="library-tile" data-view="games"><span class="tile-symbol" aria-hidden="true">▦</span><span><strong>Your game library</strong><small>GN Math + Lumin</small></span><span class="tile-arrow" aria-hidden="true">↗</span></button>
-   <div id="featured-games" class="featured-games"><div class="game-placeholder">Loading your next favorite...</div></div>
+   <div id="recent-games" class="featured-games recent-games" role="group" aria-label="Jump back in"><div class="game-placeholder">Loading your next favorite...</div></div>
+
   </div>
   <div class="section-heading shortcuts-heading"><h2>Make yourself at home</h2><span class="muted">Everything, one click away.</span></div>
   <div class="shortcut-grid">
+   <button class="library-tile" data-view="games"><span class="tile-symbol" aria-hidden="true">▦</span><span><strong>Your game library</strong><small>GN Math + Lumin</small></span><span class="tile-arrow" aria-hidden="true">↗</span></button>
+   <button class="shortcut source-shortcut" id="home-lumin"><span class="shortcut-icon" aria-hidden="true">▣</span><span><strong>Lumin</strong><small>Explore the Lumin collection</small></span></button>
    <button class="shortcut" data-view="links"><span class="shortcut-icon" aria-hidden="true">↗</span><span><strong>Your websites</strong><small>Saved links & the full built-in collection</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
    <button class="shortcut" id="home-personalize"><span class="shortcut-icon" aria-hidden="true">◐</span><span><strong>Make it yours</strong><small>Wallpapers, colors & your profile</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
    <button class="shortcut recent-shortcut" id="recent-game"><span class="shortcut-icon" aria-hidden="true">▷</span><span><strong id="recent-title">Ready when you are</strong><small id="recent-description">Your last game will appear here</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
   </div>
+  <div class="section-heading home-catalog-heading"><h2>All your games</h2></div>
+  <div class="home-controls"><label class="search-field"><input id="home-game-search" type="search" placeholder="Search all games" aria-label="Search games on Home" /></label><label>Source <select id="home-game-source"><option value="gn">GN Math</option><option value="lumin">Lumin</option></select></label><span id="home-game-count" role="status"></span><div class="home-row-arrows"><button id="home-games-prev" aria-label="Previous games">←</button><button id="home-games-next" aria-label="Next games">→</button></div></div>
+  <div id="featured-games" class="home-catalog" role="group" aria-label="All games on Home"></div>
  </section>
  <section id="view-games" class="page hidden">
   <div class="page-heading"><div><p class="eyebrow">ALL YOUR FAVORITES</p><h1>Game library</h1></div><div class="provider-tabs" role="tablist" aria-label="Game source"><button id="provider-gn" role="tab" aria-selected="true" data-source="gn">GN Math</button><button id="provider-lumin" role="tab" tabindex="-1" aria-selected="false" data-source="lumin">Lumin</button></div></div>
@@ -47,6 +55,15 @@
   <div class="page-heading"><div><p class="eyebrow">YOUR CORNER OF THE WEB</p><h1>Websites</h1></div><button class="button" id="feeling-lucky-btn">Feeling lucky ↗</button></div>
   <div class="links-layout"><aside class="panel"><h2>Save a website</h2><form id="save-link-form"><label>Website name<input id="custom-link-name" required maxlength="100" placeholder="My website"></label><label>Website URL<input id="custom-link-url" required placeholder="https://example.com"></label><button class="button primary" type="submit">Save website</button></form><p class="muted small" id="link-feedback" role="status">Your saved links stay in this browser.</p></aside><div><h2 class="subheading">Saved websites</h2><div id="user-links-grid" class="saved-links"></div></div></div>
   <div class="section-heading"><h2>Built-in collection</h2><span class="muted" id="builtin-count"></span></div><label class="search-field links-search"><span aria-hidden="true">⌕</span><input type="search" id="website-search" aria-label="Search websites" placeholder="Search websites"></label><div id="built-in-links-grid" class="website-grid"></div><button id="website-more" class="button more-button hidden">Load more websites</button>
+ </section>
+ <section id="view-p8y" class="page hidden">
+  <div class="page-heading"><div><p class="eyebrow">YOUR BROWSING SPACE</p><h1>Geekfox</h1></div><div class="geekfox-page-actions"><button class="button" id="geekfox-fullscreen">Fullscreen</button><button class="button" id="geekfox-clear">Close all tabs</button></div></div>
+  <section id="geekfox-browser" class="geekfox-browser" aria-label="Geekfox browser">
+   <div class="geekfox-tabbar"><span class="geekfox-brand" aria-hidden="true">G</span><div id="geekfox-tabs" class="geekfox-tabs" role="tablist" aria-label="Browser tabs"></div><button id="geekfox-add-tab" class="geekfox-icon" aria-label="New tab">+</button><button id="geekfox-exit-fullscreen" class="geekfox-fullscreen-exit">Exit fullscreen</button></div>
+   <div class="geekfox-toolbar"><button id="geekfox-back" class="geekfox-icon" aria-label="Back" disabled>←</button><button id="geekfox-forward" class="geekfox-icon" aria-label="Forward" disabled>→</button><button id="geekfox-reload" class="geekfox-icon" aria-label="Reload page" disabled>↻</button><button id="geekfox-home" class="geekfox-icon" aria-label="New tab page">⌂</button><form id="geekfox-address-form"><label class="geekfox-address-wrap"><span aria-hidden="true">⌕</span><input id="geekfox-address" type="text" aria-label="Search or enter address" placeholder="Search with DuckDuckGo or enter address" autocomplete="off" spellcheck="false" autocapitalize="off" inputmode="url"><button class="geekfox-go" type="submit" aria-label="Go">→</button></label></form><button id="geekfox-bookmark" class="geekfox-icon" aria-label="Bookmark this page" aria-pressed="false" disabled>☆</button></div>
+   <div id="geekfox-pages" class="geekfox-pages"></div>
+   <div class="geekfox-statusbar"><span class="geekfox-connection" aria-hidden="true"></span><span id="geekfox-status" role="status">New tab · search or enter a website address</span><span class="geekfox-free">No account required</span></div>
+  </section>
  </section>
  <section id="view-settings" class="page hidden">
   <div class="page-heading"><div><p class="eyebrow">JUST THE WAY YOU LIKE IT</p><h1>Settings</h1></div></div>

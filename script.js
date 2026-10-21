@@ -1,3 +1,5 @@
+import { initializeGeekfox } from "./geekfox.js";
+import { loadLuminCover } from "./lumin.js";
 import { initializeGnMath } from "./gn-math.js";
 
 const $ = id => document.getElementById(id);
@@ -209,7 +211,7 @@ $('personalize-dialog').addEventListener('cancel', event => {
 $('display-name-input').addEventListener('input', () => { draft.name = $('display-name-input').value.trim() || 'Player'; applyProfile(draft); });
 for (const id of ['profile-btn','home-personalize','settings-personalize']) $(id).addEventListener('click', personalize);
 function showView(name) {
-    if (!['home','games','links','settings','credits'].includes(name)) name = 'home';
+    if (!['home','games','links','p8y','settings','credits'].includes(name)) name = 'home';
     const changed = route !== name;
     route = name;
     document.querySelectorAll('main>.page').forEach(page => page.classList.toggle('hidden', page.id !== `view-${name}`));
@@ -221,12 +223,14 @@ function showView(name) {
     if (changed) reveal($(`view-${name}`));
     try { window.parent.location.hash = name; } catch {}
     if (name === 'links') loadWebsites();
+    if (name === 'p8y') geekfox.open();
     window.scrollTo({top:0,behavior:'instant'});
 }
 document.addEventListener('click', event => {
     const nav = event.target.closest('[data-view]');
     if (nav) { event.preventDefault(); sound(); showView(nav.dataset.view); }
 });
+const geekfox = initializeGeekfox({reveal, toast, read, write});
 function updateClock() { $('dashboard-clock').textContent = new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).format(new Date()); }
 updateClock(); setInterval(updateClock,30000);
 $('sound-toggle').checked = read('gbSounds',true);
@@ -298,16 +302,58 @@ $('feeling-lucky-btn').addEventListener('click',async()=>{
     const win=window.open('about:blank','_blank'); if(!win)return toast('Allow pop-ups to open a random website.');
     try { const all=await getLinks(); const item=all[Math.floor(Math.random()*all.length)]; win.opener=null; win.location.href=typeof item==='string'?item:item.url; } catch { win.close();toast('Could not load the website collection.'); }
 });
+const homeCatalogs = new Map();
+$('home-lumin').addEventListener('click',()=>{
+    $('home-game-source').value='lumin';$('home-game-source').dispatchEvent(new Event('change'));
+    document.querySelector('.home-catalog-heading')?.scrollIntoView({behavior:reducedMotion()?'instant':'smooth'});
+});
 function renderFeatured(games) {
-    const picks=[1,6,114,82].map(id=>games.find(g=>g.id===id)).filter(Boolean); featured=picks.length===4?picks:games.slice(0,4);
-    $('featured-games').replaceChildren(...featured.map(game=>{
+    const query=$('home-game-search').value.trim().toLowerCase();
+    featured=games.filter(game=>game.name.toLowerCase().includes(query));
+    $('home-game-count').textContent=`${featured.length} of ${games.length} games`;
+    function makeHomeCard(game) {
         const card=document.createElement('button'); card.className='featured-card'; card.setAttribute('aria-label',`Play ${game.name}`);
-        const image=document.createElement('img'); image.src=game.cover; image.alt=''; image.addEventListener('error',()=>image.remove(),{once:true});
-        const label=document.createElement('span'); label.className='featured-caption';label.textContent=game.name;
-        card.append(image,label); card.addEventListener('click',()=>library.launch(game,card)); return card;
-    }));
+        const image=document.createElement('img'); image.loading='lazy'; image.decoding='async'; image.alt='';
+        if(game.provider==='lumin') {
+            const observer=new IntersectionObserver(entries=>{
+                if(!entries.some(entry=>entry.isIntersecting))return;
+                observer.disconnect();
+                loadLuminCover(game.imageToken).then(url=>{if(url&&image.isConnected)image.src=url;}).catch(()=>image.remove());
+            });observer.observe(image);
+            image.homeCoverObserver=observer;
+        } else if(game.cover) image.src=game.cover;
+         image.addEventListener('error',()=>image.remove(),{once:true});
+        const art=document.createElement('span');art.className='home-game-art';art.append(image);
+        const label=document.createElement('span');label.className='featured-caption';label.textContent=game.name;
+        card.addEventListener('keydown',event=>{
+            if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+            event.preventDefault();const cards=[...card.parentElement.querySelectorAll('.featured-card')];const index=cards.indexOf(card);
+            const next=event.key==='Home'?0:event.key==='End'?cards.length-1:(index+(event.key==='ArrowRight'?1:-1)+cards.length)%cards.length;
+            cards[next].focus();
+        });
+        card.append(art,label);card.addEventListener('click',()=>library.launch(game,card));return card;
+    }
+    const cards=featured.map(makeHomeCard);
+    if(!cards.length){const empty=document.createElement('p');empty.textContent='No games match your search.';cards.push(empty);}
+    document.querySelectorAll('#featured-games img,#recent-games img').forEach(image=>image.homeCoverObserver?.disconnect());
+    const recent=read('gbRecentGame');
+    const resume=games.find(game=>String(game.id)===String(recent?.id)&&game.provider===(recent?.source||'gn'));
+    const quick=resume?[resume,...games.filter(game=>game!==resume)]:games;
+    $('recent-games').replaceChildren(...quick.slice(0,6).map(makeHomeCard));
+    $('featured-games').replaceChildren(...cards);
 }
-document.addEventListener('catalogready',event=>{ if(event.detail.source==='gn') renderFeatured(event.detail.games); });
+document.addEventListener('catalogready',event=>{
+    homeCatalogs.set(event.detail.source,event.detail.games);
+    if(event.detail.source===$('home-game-source').value)renderFeatured(event.detail.games);
+});
+$('home-game-search').addEventListener('input',()=>renderFeatured(homeCatalogs.get($('home-game-source').value)||[]));
+$('home-game-source').addEventListener('change',async()=>{
+    const source=$('home-game-source').value;
+    if(homeCatalogs.has(source))return renderFeatured(homeCatalogs.get(source));
+    $('home-game-count').textContent='Loading games…';
+    await library.setSource(source);
+    if($('home-game-source').value===source){const games=library.getGames();homeCatalogs.set(source,games);renderFeatured(games);}
+});
 document.addEventListener('gameplayed',event=>{ lastGame=event.detail; write('gbRecentGame',{name:lastGame.name,source:lastGame.provider||'gn',id:lastGame.id}); updateRecent(); });
 function updateRecent() { const recent=read('gbRecentGame'); if(recent){$('recent-title').textContent=recent.name;$('recent-description').textContent=`Continue from ${recent.source==='lumin'?'Lumin':'GN Math'}`;} }
 $('recent-game').addEventListener('click',async()=>{

@@ -8,7 +8,7 @@ typography inspired by iOS/macOS. Custom accent colors and wallpapers are retain
 
 ## The file to upload
 
-`index.svg` is now a standalone app file, approximately 16 MB. It embeds:
+`index.svg` is the main app file, approximately 16 MB. It embeds:
 
 - The complete dashboard HTML, stylesheet, application code, GN Math adapter,
   and Lumin adapter.
@@ -18,12 +18,14 @@ typography inspired by iOS/macOS. Custom accent colors and wallpapers are retain
 - The original 72,000-website collection, compressed inside the SVG. The app
   decompresses it when Websites is opened.
 
-No neighboring images, fonts, audio, or JavaScript files are needed to run the SVG.
+The dashboard needs no neighboring images, fonts, or audio. Geekfox additionally
+requires `geekfox-worker.js` beside `index.svg` on the same origin. Push both files.
+The worker handles only Geekfox browsing URLs and leaves dashboard/game requests alone.
 Games, covers, catalogs, and the official Lumin SDK still load from their online
 providers. This is an interactive SVG document with an embedded HTML application;
 open it directly in a browser or in an iframe/object, not an img element.
 
-After committing and pushing index.svg, the existing deployment target remains:
+After committing and pushing index.svg and geekfox-worker.js, the existing deployment target remains:
 https://cdn.jsdelivr.net/gh/idontknow73671/Geeks-bunker@main/index.svg
 
 For an immutable release, replace main with the commit SHA. No commit, push, or
@@ -62,7 +64,7 @@ Duplicate calls during the same selection are suppressed to avoid doubled sounds
 
 The source audio copies are audio/ps4-menu.mp3 and audio/ps4-select.mp3. The files
 in Downloads are untouched. Both are included in index.svg, keeping the app a
-single file. The approximately 16 MB output remains below the 20 MB GitHub-file
+single SVG for dashboard media. The approximately 16 MB output remains below the 20 MB GitHub-file
 limit used by jsDelivr. Existing interface settings and game integrations remain.
 
 ## Both game libraries
@@ -97,7 +99,8 @@ application branding are not included.
 ## Source and rebuilding
 
 Keep these source files for editing: index.html, style.css, script.js, gn-math.js,
-lumin.js, build-svg.py, links.js, images/wallpapers/, and the two audio/ps4-*.mp3 files.
+lumin.js, geekfox.js, geekfox-engine.js, geekfox-worker.js, build-svg.py, links.js,
+images/wallpapers/, and the two audio/ps4-*.mp3 files.
 
 ```
 python3 build-svg.py
@@ -106,7 +109,9 @@ python3 -m http.server 8766 --bind 127.0.0.1
 
 Open http://127.0.0.1:8766/index.svg. The builder uses only Python's standard
 library. index.html remains an editable HTML entry point using the source modules
-and wallpaper files; only the generated SVG embeds everything.
+and wallpaper files; the generated SVG embeds dashboard sources and media, plus the Geekfox UI and
+controller bootstrap. Its worker remains a companion file because browsers require
+a real same-origin worker script URL.
 
 ## Verification
 
@@ -135,3 +140,37 @@ and wallpaper files; only the generated SVG embeds everything.
   check inside that separate popup remains a manual browser check.
 
 Interaction motion uses short eased button presses, sliding navigation and provider indicators, and soft page and dialog entrances. Customization choices keep keyboard focus as their selection changes. Both the system reduced-motion preference and the dashboard Reduce motion setting disable these effects.
+
+## Geekfox
+
+Geekfox replaces the old p8y service-homepage embeds. It has its own Firefox-inspired
+horizontal tabs, address/search bar, back/forward history, reload, bookmarks,
+new-tab shortcuts, close-tab controls, and fullscreen. Bookmarks stay in localStorage;
+open tabs are deliberately ephemeral. Switching tabs retains the loaded pages.
+
+The browser controller runs in the outer SVG document, registers the companion
+worker, and uses the reference's client-side rewriting engine and shared relay pool.
+A content iframe still renders each rewritten website, as in the reference; it is
+not an embedded third-party browsing homepage. Address and title changes follow
+in-page navigation. The engine loads only on the first website visit.
+
+Runtime assets are pinned to reference commit
+8b35ef07ef9788b060a78fbb504112e28e134b1d. The CDN provides the upstream rewriter,
+controller, injected client, WASM, and relay transport. Our companion worker does
+not include the reference's release updater, ads, tracking scripts, or account UI.
+Geekfox uses the public basic relay connections without payment keys or accounts.
+Shared service availability and future pricing are controlled by their operators;
+there is no paid fallback or billing integration in this project.
+
+Publish `index.svg` AND `geekfox-worker.js` in the same repository directory.
+The address you open and the worker must use the same host and revision segment;
+for example both should be under the same jsDelivr @main path. Purge both URLs
+after publishing updates. HTTPS is required, with localhost allowed for development.
+Do not rename external runtime paths: they are part of the pinned service protocol.
+User-facing branding is Geekfox; internal feature routing retains p8y.
+
+Reference: https://cdn.jsdelivr.net/gh/lucideproxy/svg@HEAD/index.svg
+
+Verified actual SVG browsing through the shared relay, live document titles,
+rewritten links, navigation from example.com to IANA, and back/forward between
+those pages. Verified independent tabs and bookmark visibility on a new tab.

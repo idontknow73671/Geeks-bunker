@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the standalone Geeks Bunker SVG.
+"""Build the Geeks Bunker SVG with its companion Geekfox worker.
 
 Bundles application modules, supplied wallpapers, CSS, and compressed website
 links. Game catalogs, covers, the Lumin SDK, and games use their online providers.
@@ -23,9 +23,15 @@ def inline_script(source):
 
 
 def build():
+    if not (ROOT / 'geekfox-worker.js').is_file():
+        raise SystemExit('Keep geekfox-worker.js beside index.svg for Geekfox browsing.')
     html = (ROOT / 'index.html').read_text(encoding='utf-8')
     css = (ROOT / 'style.css').read_text(encoding='utf-8')
-    script = (ROOT / 'script.js').read_text(encoding='utf-8')
+    script = (ROOT / 'script.js').read_text(encoding='utf-8').replace('import { loadLuminCover } from "./lumin.js";', '')
+    geekfox = (ROOT / 'geekfox.js').read_text(encoding='utf-8').replace('export function initializeGeekfox', 'function initializeGeekfox', 1)
+    script = script.replace('import { initializeGeekfox } from "./geekfox.js";', geekfox)
+    html = html.replace('<script src="geekfox-engine.js"></script>', '')
+    engine = (ROOT / 'geekfox-engine.js').read_text(encoding='utf-8')
     gn_math = (ROOT / 'gn-math.js').read_text(encoding='utf-8')
     gn_import = 'import { initializeGnMath } from "./gn-math.js";'
     if script.count(gn_import) != 1:
@@ -91,6 +97,7 @@ def build():
   </foreignObject>
   <script><![CDATA[
 (() => {
+__GEEKFOX_ENGINE__
     const frame = document.getElementById('site');
     const page = __PAYLOAD__;
     const baseURL = new URL(window.location.href);
@@ -120,7 +127,7 @@ def build():
 })();
   ]]></script>
 </svg>
-'''.replace('__PAYLOAD__', payload)
+'''.replace('__PAYLOAD__', payload).replace('__GEEKFOX_ENGINE__', engine)
 
     ET.fromstring(svg)  # A malformed XML file would show a parser error in the browser.
     output = ROOT / 'index.svg'
@@ -129,7 +136,7 @@ def build():
     if size > 20_000_000:
         raise SystemExit('SVG exceeds the conservative 20 MB jsDelivr GitHub file limit.')
     print(f'Built {output.name}: {size:,} bytes')
-    print(f'Bundled wallpapers, PS4 audio, GN Math, Lumin, and {len(catalog):,} website links. No local asset dependencies.')
+    print(f'Bundled wallpapers, PS4 audio, GN Math, Lumin, and {len(catalog):,} website links. Geekfox also needs geekfox-worker.js beside index.svg.')
 
 
 if __name__ == '__main__':
