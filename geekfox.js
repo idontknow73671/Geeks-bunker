@@ -1,8 +1,8 @@
-export function initializeGeekfox({reveal, toast, read, write}) {
+export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
     const $ = id => document.getElementById(id);
     const tabs = [];
     let selected = null, nextId = 1, engine = null, pending = null;
-    const shortcuts = [['Wikipedia','https://www.wikipedia.org/'],['DuckDuckGo','https://duckduckgo.com/'],['GitHub','https://github.com/'],['MDN','https://developer.mozilla.org/']];
+    const shortcuts = [['Wikipedia','https://www.wikipedia.org/'],['Duck.ai','https://duck.ai/'],['DuckDuckGo','https://duckduckgo.com/'],['GitHub','https://github.com/'],['MDN','https://developer.mozilla.org/']];
     const active = () => tabs.find(tab => tab.id === selected);
     function address(value) {
         const text = value.trim();
@@ -75,7 +75,7 @@ export function initializeGeekfox({reveal, toast, read, write}) {
     function welcome(tab) {
         tab.panel.replaceChildren();
         const home = document.createElement('div'); home.className = 'geekfox-newtab';
-        const mark = document.createElement('div'); mark.className = 'geekfox-mark'; mark.textContent = 'G';
+        const mark = document.createElement('img'); mark.className = 'geekfox-mark'; mark.src = 'images/geekfox.png'; mark.alt = 'Geekfox';
         const heading = document.createElement('h2'); heading.textContent = 'Geekfox';
         const note = document.createElement('p'); note.textContent = 'A little more room to explore.';
         const grid = document.createElement('div'); grid.className = 'geekfox-shortcuts';
@@ -86,7 +86,9 @@ export function initializeGeekfox({reveal, toast, read, write}) {
             const caption = document.createElement('span'); caption.textContent = label;
             button.append(letter,caption); button.addEventListener('click', () => navigate(tab,url)); grid.append(button);
         }
-        home.append(mark,heading,note,grid); tab.panel.append(home);
+        const customize = document.createElement('button'); customize.className = 'button geekfox-customize'; customize.textContent = 'Customize background';
+        customize.addEventListener('click', onCustomize);
+        home.append(mark,heading,note,grid,customize); tab.panel.append(home);
     }
     async function getEngine() {
         if (engine) return engine;

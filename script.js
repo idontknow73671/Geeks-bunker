@@ -1,3 +1,5 @@
+import { initializeYourGeek } from "./yourgeek.js";
+import { loadBackgrounds, saveBackgrounds, prepareBackground } from "./appearance.js";
 import { initializeGeekfox } from "./geekfox.js";
 import { loadLuminCover } from "./lumin.js";
 import { initializeGnMath } from "./gn-math.js";
@@ -15,6 +17,45 @@ const DEFAULT_PROFILE = { name: 'Player', wallpaper: 'windows', accent: '#8edb44
 let profile = read('gbProfileV1');
 if (!profile || !WALLPAPERS.some(x => x.id === profile.wallpaper) || !ACCENTS.some(x => x[0] === profile.accent)) profile = null;
 let draft = { ...(profile || DEFAULT_PROFILE) };
+let backgrounds = await loadBackgrounds();
+let draftBackgrounds = { ...backgrounds };
+let previewBackgrounds = backgrounds;
+const backgroundURLs = new Map();
+let backgroundBusy = false;
+function backgroundURL(blob) {
+    if (!blob) return null;
+    if (!backgroundURLs.has(blob)) backgroundURLs.set(blob, URL.createObjectURL(blob));
+    return backgroundURLs.get(blob);
+}
+function applyBackgrounds() {
+    const dashboard = backgroundURL(previewBackgrounds.dashboard);
+    const fox = backgroundURL(previewBackgrounds.geekfox);
+    document.documentElement.style.setProperty('--custom-wallpaper', dashboard ? `url("${dashboard}")` : 'var(--wallpaper)');
+    document.documentElement.style.setProperty('--geekfox-wallpaper', fox ? `linear-gradient(#080d174d,#080d174d),url("${fox}")` : 'none');
+    for (const key of ['dashboard','geekfox']) {
+        const image = $(`${key}-background-preview`), url = backgroundURL(previewBackgrounds[key]);
+        image.hidden = !url; if (url) { if (image.getAttribute('src') !== url) image.src = url; } else image.removeAttribute('src');
+        $(`${key}-background-reset`).disabled = !url;
+        $(`${key}-background-status`).textContent = url ? 'Custom image selected' : key === 'dashboard' ? 'Using the backdrop selected above' : 'Using the transparent glass background';
+    }
+    for (const [blob, url] of backgroundURLs) {
+        if (![...Object.values(backgrounds),...Object.values(draftBackgrounds)].includes(blob)) { URL.revokeObjectURL(url); backgroundURLs.delete(blob); }
+    }
+}
+for (const key of ['dashboard','geekfox']) {
+    $(`${key}-background-upload`).addEventListener('change', async event => {
+        const file = event.target.files[0]; if (!file || backgroundBusy) return;
+        backgroundBusy = true; $('setup-save').disabled = true; $('setup-cancel').disabled = true;
+        try {
+            draftBackgrounds[key] = await prepareBackground(file); previewBackgrounds = draftBackgrounds;
+            applyBackgrounds(); updateChoices();
+        } catch (error) { toast(error.message || 'This image could not be opened. Try another image.'); }
+        finally { backgroundBusy = false; $('setup-save').disabled = false; $('setup-cancel').disabled = false; event.target.value = ''; }
+    });
+    $(`${key}-background-reset`).addEventListener('click', () => {
+        draftBackgrounds[key] = null; previewBackgrounds = draftBackgrounds; applyBackgrounds(); updateChoices();
+    });
+}
 let route = 'home';
 let currentSource = 'gn';
 let library;
@@ -160,12 +201,13 @@ async function closePersonalize() {
 }
 function updateChoices() {
     document.querySelectorAll('.accent-choice').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.accent === draft.accent)));
-    document.querySelectorAll('.wallpaper-choice').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.wallpaper === draft.wallpaper)));
+    document.querySelectorAll('.wallpaper-choice').forEach(button => button.setAttribute('aria-pressed', String(!previewBackgrounds.dashboard && button.dataset.wallpaper === draft.wallpaper)));
 }
 function applyProfile(value) {
     const wallpaper = WALLPAPERS.find(x => x.id === value.wallpaper) || WALLPAPERS[0];
     document.documentElement.style.setProperty('--wallpaper', `url("${wallpaper.url}")`);
     document.documentElement.style.setProperty('--accent', value.accent);
+    applyBackgrounds();
     $('welcome-name').textContent = value.name || 'Player';
     $('profile-name').textContent = value.name || 'Player';
     $('profile-avatar').textContent = (value.name || 'P').slice(0, 1).toUpperCase();
@@ -181,37 +223,44 @@ function renderChoices() {
         button.dataset.wallpaper = wallpaper.id; button.setAttribute('aria-label', `${wallpaper.name} wallpaper`); button.setAttribute('aria-pressed', String(draft.wallpaper === wallpaper.id));
         const image = document.createElement('img'); image.src = wallpaper.url; image.alt = '';
         const label = document.createElement('span'); label.textContent = wallpaper.name; button.append(image,label);
-        button.addEventListener('click', () => { draft.wallpaper = wallpaper.id; applyProfile(draft); updateChoices(); }); return button;
+        button.addEventListener('click', () => { draft.wallpaper = wallpaper.id; draftBackgrounds.dashboard = null; previewBackgrounds = draftBackgrounds; applyProfile(draft); updateChoices(); }); return button;
     }));
 }
 function personalize() {
     if (setupClosing || $('personalize-dialog').open) return;
     draft = { ...(profile || DEFAULT_PROFILE) };
+    draftBackgrounds = { ...backgrounds }; previewBackgrounds = draftBackgrounds; applyBackgrounds();
     $('display-name-input').value = profile?.name || '';
     $('setup-title').textContent = profile ? 'Your dashboard. Your rules.' : 'Make yourself at home.';
     $('setup-eyebrow').textContent = profile ? 'PERSONALIZE YOUR SPACE' : 'WELCOME TO YOUR BUNKER';
     $('setup-cancel').textContent = profile ? 'Cancel' : 'Use defaults';
     $('setup-save').firstChild.textContent = profile ? 'Save changes ' : "Let's play ";
-    renderChoices(); $('personalize-dialog').showModal();
+    renderChoices(); updateChoices(); $('personalize-dialog').showModal(); $('personalize-dialog').scrollTop = 0;
     animateElement($('personalize-dialog'), [{opacity:0,transform:'translateY(10px) scale(.975)'},{opacity:1,transform:'translateY(0) scale(1)'}], {duration:260});
 }
-$('personalize-form').addEventListener('submit', event => {
-    event.preventDefault(); if (setupClosing) return; draft.name = $('display-name-input').value.trim() || 'Player';
-    profile = { ...draft }; write('gbProfileV1', profile); applyProfile(profile); closePersonalize(); sound();
+$('personalize-form').addEventListener('submit', async event => {
+    event.preventDefault(); if (setupClosing || backgroundBusy) return;
+    backgroundBusy = true; $('setup-save').disabled = true; $('setup-cancel').disabled = true;
+    try {
+        if (['dashboard','geekfox'].some(key => backgrounds[key] !== draftBackgrounds[key])) await saveBackgrounds(draftBackgrounds);
+        backgrounds = { ...draftBackgrounds }; previewBackgrounds = backgrounds;
+        draft.name = $('display-name-input').value.trim() || 'Player';
+        profile = { ...draft }; write('gbProfileV1', profile); applyProfile(profile); closePersonalize(); sound();
+    } catch { toast('Your browser could not save the backgrounds. Free some browser storage and try again.'); }
+    finally { backgroundBusy = false; $('setup-save').disabled = false; $('setup-cancel').disabled = false; }
 });
-$('setup-cancel').addEventListener('click', () => {
-    if (setupClosing) return;
+function cancelPersonalize() {
+    if (setupClosing || backgroundBusy) return;
     if (!profile) { profile = { ...DEFAULT_PROFILE }; write('gbProfileV1', profile); }
+    draftBackgrounds = { ...backgrounds }; previewBackgrounds = backgrounds;
     applyProfile(profile); closePersonalize();
-});
-$('personalize-dialog').addEventListener('cancel', event => {
-    event.preventDefault();
-    if (profile) { applyProfile(profile); closePersonalize(); }
-});
+}
+$('setup-cancel').addEventListener('click', cancelPersonalize);
+$('personalize-dialog').addEventListener('cancel', event => { event.preventDefault(); cancelPersonalize(); });
 $('display-name-input').addEventListener('input', () => { draft.name = $('display-name-input').value.trim() || 'Player'; applyProfile(draft); });
-for (const id of ['profile-btn','home-personalize','settings-personalize']) $(id).addEventListener('click', personalize);
+for (const id of ['profile-btn','home-personalize','settings-personalize','geekfox-personalize']) $(id).addEventListener('click', personalize);
 function showView(name) {
-    if (!['home','games','links','p8y','settings','credits'].includes(name)) name = 'home';
+    if (!['home','g8mes','links','p8y','ai','settings','credits'].includes(name)) name = 'home';
     const changed = route !== name;
     route = name;
     document.querySelectorAll('main>.page').forEach(page => page.classList.toggle('hidden', page.id !== `view-${name}`));
@@ -224,13 +273,15 @@ function showView(name) {
     try { window.parent.location.hash = name; } catch {}
     if (name === 'links') loadWebsites();
     if (name === 'p8y') geekfox.open();
+    if (name === 'ai') yourGeek.open();
     window.scrollTo({top:0,behavior:'instant'});
 }
 document.addEventListener('click', event => {
     const nav = event.target.closest('[data-view]');
     if (nav) { event.preventDefault(); sound(); showView(nav.dataset.view); }
 });
-const geekfox = initializeGeekfox({reveal, toast, read, write});
+const yourGeek = initializeYourGeek({reveal});
+const geekfox = initializeGeekfox({reveal, toast, read, write, onCustomize:personalize});
 function updateClock() { $('dashboard-clock').textContent = new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).format(new Date()); }
 updateClock(); setInterval(updateClock,30000);
 $('sound-toggle').checked = read('gbSounds',true);
@@ -307,10 +358,10 @@ $('home-lumin').addEventListener('click',()=>{
     $('home-game-source').value='lumin';$('home-game-source').dispatchEvent(new Event('change'));
     document.querySelector('.home-catalog-heading')?.scrollIntoView({behavior:reducedMotion()?'instant':'smooth'});
 });
-function renderFeatured(games) {
+function renderFeatured(g8mes) {
     const query=$('home-game-search').value.trim().toLowerCase();
-    featured=games.filter(game=>game.name.toLowerCase().includes(query));
-    $('home-game-count').textContent=`${featured.length} of ${games.length} games`;
+    featured=g8mes.filter(game=>game.name.toLowerCase().includes(query));
+    $('home-game-count').textContent=`${featured.length} of ${g8mes.length} g8mes`;
     function makeHomeCard(game) {
         const card=document.createElement('button'); card.className='featured-card'; card.setAttribute('aria-label',`Play ${game.name}`);
         const image=document.createElement('img'); image.loading='lazy'; image.decoding='async'; image.alt='';
@@ -334,31 +385,31 @@ function renderFeatured(games) {
         card.append(art,label);card.addEventListener('click',()=>library.launch(game,card));return card;
     }
     const cards=featured.map(makeHomeCard);
-    if(!cards.length){const empty=document.createElement('p');empty.textContent='No games match your search.';cards.push(empty);}
-    document.querySelectorAll('#featured-games img,#recent-games img').forEach(image=>image.homeCoverObserver?.disconnect());
+    if(!cards.length){const empty=document.createElement('p');empty.textContent='No g8mes match your search.';cards.push(empty);}
+    document.querySelectorAll('#featured-g8mes img,#recent-g8mes img').forEach(image=>image.homeCoverObserver?.disconnect());
     const recent=read('gbRecentGame');
-    const resume=games.find(game=>String(game.id)===String(recent?.id)&&game.provider===(recent?.source||'gn'));
-    const quick=resume?[resume,...games.filter(game=>game!==resume)]:games;
-    $('recent-games').replaceChildren(...quick.slice(0,6).map(makeHomeCard));
-    $('featured-games').replaceChildren(...cards);
+    const resume=g8mes.find(game=>String(game.id)===String(recent?.id)&&game.provider===(recent?.source||'gn'));
+    const quick=resume?[resume,...g8mes.filter(game=>game!==resume)]:g8mes;
+    $('recent-g8mes').replaceChildren(...quick.slice(0,6).map(makeHomeCard));
+    $('featured-g8mes').replaceChildren(...cards);
 }
 document.addEventListener('catalogready',event=>{
-    homeCatalogs.set(event.detail.source,event.detail.games);
-    if(event.detail.source===$('home-game-source').value)renderFeatured(event.detail.games);
+    homeCatalogs.set(event.detail.source,event.detail.g8mes);
+    if(event.detail.source===$('home-game-source').value)renderFeatured(event.detail.g8mes);
 });
 $('home-game-search').addEventListener('input',()=>renderFeatured(homeCatalogs.get($('home-game-source').value)||[]));
 $('home-game-source').addEventListener('change',async()=>{
     const source=$('home-game-source').value;
     if(homeCatalogs.has(source))return renderFeatured(homeCatalogs.get(source));
-    $('home-game-count').textContent='Loading games…';
+    $('home-game-count').textContent='Loading g8mes…';
     await library.setSource(source);
-    if($('home-game-source').value===source){const games=library.getGames();homeCatalogs.set(source,games);renderFeatured(games);}
+    if($('home-game-source').value===source){const g8mes=library.getG8mes();homeCatalogs.set(source,g8mes);renderFeatured(g8mes);}
 });
 document.addEventListener('gameplayed',event=>{ lastGame=event.detail; write('gbRecentGame',{name:lastGame.name,source:lastGame.provider||'gn',id:lastGame.id}); updateRecent(); });
-function updateRecent() { const recent=read('gbRecentGame'); if(recent){$('recent-title').textContent=recent.name;$('recent-description').textContent=`Continue from ${recent.source==='lumin'?'Lumin':'GN Math'}`;} }
+function updateRecent() { const recent=read('gbRecentGame'); if(recent){$('recent-title').textContent=recent.name.replace(/\bg[a]mes\b/gi,'g8mes');$('recent-description').textContent=`Continue from ${recent.source==='lumin'?'Lumin':'GN Math'}`;} }
 $('recent-game').addEventListener('click',async()=>{
     if(lastGame)return library.launch(lastGame,$('recent-game'));
-    const recent=read('gbRecentGame'); if(recent){showView('games');await library.setSource(recent.source);const game=library.getGames().find(x=>String(x.id)===String(recent.id));if(game)return library.launch(game,$('recent-game'));} else showView('games');
+    const recent=read('gbRecentGame'); if(recent){showView('g8mes');await library.setSource(recent.source);const game=library.getG8mes().find(x=>String(x.id)===String(recent.id));if(game)return library.launch(game,$('recent-game'));} else showView('g8mes');
 });
 for(const button of document.querySelectorAll('[data-source]'))button.addEventListener('click',()=>{sound();currentSource=button.dataset.source;library.setSource(currentSource);});
 document.querySelectorAll('[data-source]').forEach(button=>button.addEventListener('keydown',event=>{
@@ -374,4 +425,19 @@ library=initializeGnMath({
 });
 applyProfile(profile||DEFAULT_PROFILE);updateRecent();
 let initial='home';try{initial=window.parent.location.hash.slice(1)||'home';}catch{}showView(initial);
-if(!profile)personalize();
+// Show the notice once per tab visit; Settings always provides a way back.
+function showTerms() {
+    if ($('terms-dialog').open) return;
+    $('terms-dialog').showModal();
+    $('terms-copy').scrollTop = 0;
+    animateElement($('terms-dialog'), [{opacity:0,transform:'translateY(10px) scale(.975)'},{opacity:1,transform:'translateY(0) scale(1)'}], {duration:260});
+}
+let termsSeen = false;
+try { termsSeen = sessionStorage.getItem('gbTermsNotice20261022') === 'shown'; } catch {}
+$('terms-open').addEventListener('click', showTerms);
+$('terms-dialog').addEventListener('close', () => {
+    try { sessionStorage.setItem('gbTermsNotice20261022', 'shown'); } catch {}
+    if (!profile) personalize();
+});
+$('terms-close').addEventListener('click', () => $('terms-dialog').close());
+if (!termsSeen) showTerms(); else if (!profile) personalize();

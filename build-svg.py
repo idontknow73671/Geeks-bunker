@@ -2,7 +2,7 @@
 """Build the Geeks Bunker SVG with its companion Geekfox worker.
 
 Bundles application modules, supplied wallpapers, CSS, and compressed website
-links. Game catalogs, covers, the Lumin SDK, and games use their online providers.
+links. Game catalogs, covers, the Lumin SDK, and g8mes use their online providers.
 Run again after editing any source module, stylesheet, or wallpaper.
 """
 
@@ -28,6 +28,10 @@ def build():
     html = (ROOT / 'index.html').read_text(encoding='utf-8')
     css = (ROOT / 'style.css').read_text(encoding='utf-8')
     script = (ROOT / 'script.js').read_text(encoding='utf-8').replace('import { loadLuminCover } from "./lumin.js";', '')
+    appearance = (ROOT / 'appearance.js').read_text(encoding='utf-8').replace('export async function ', 'async function ')
+    script = script.replace('import { loadBackgrounds, saveBackgrounds, prepareBackground } from "./appearance.js";', appearance)
+    yourgeek = (ROOT / 'yourgeek.js').read_text(encoding='utf-8').replace('export function initializeYourGeek', 'function initializeYourGeek', 1)
+    script = script.replace('import { initializeYourGeek } from "./yourgeek.js";', yourgeek)
     geekfox = (ROOT / 'geekfox.js').read_text(encoding='utf-8').replace('export function initializeGeekfox', 'function initializeGeekfox', 1)
     script = script.replace('import { initializeGeekfox } from "./geekfox.js";', geekfox)
     html = html.replace('<script src="geekfox-engine.js"></script>', '')
@@ -36,6 +40,8 @@ def build():
     gn_import = 'import { initializeGnMath } from "./gn-math.js";'
     if script.count(gn_import) != 1:
         raise SystemExit('Expected one initializeGnMath import in script.js.')
+    saves = (ROOT / 'g8me-saves.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('export async function ', 'async function ')
+    gn_math = gn_math.replace('import { withG8meSaves, flushG8meFrame } from "./g8me-saves.js";', saves)
     gn_math = gn_math.replace('import { loadLuminCatalog, loadLuminCover, resolveLuminGame } from "./lumin.js";', '')
     lumin = (ROOT / 'lumin.js').read_text(encoding='utf-8').replace('export async function ', 'async function ')
     script = script.replace(gn_import, lumin + '\n' + gn_math.replace('export function initializeGnMath', 'function initializeGnMath', 1))
@@ -46,6 +52,10 @@ def build():
         relative = 'images/wallpapers/' + filename
         encoded = base64.b64encode((ROOT / relative).read_bytes()).decode('ascii')
         script = script.replace(relative, 'data:image/jpeg;base64,' + encoded)
+
+    logo = 'data:image/png;base64,' + base64.b64encode((ROOT / 'images/geekfox.png').read_bytes()).decode('ascii')
+    html = html.replace('images/geekfox.png', logo)
+    script = script.replace('images/geekfox.png', logo)
 
     # Embed the exact user-supplied PS4 audio files, preserving the one-file app.
     for filename in ['ps4-menu.mp3', 'ps4-select.mp3']:

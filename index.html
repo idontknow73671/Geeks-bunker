@@ -16,39 +16,40 @@
  <a class="brand" href="#home" data-view="home" aria-label="Geeks Bunker Home"><span class="brand-mark">G<span>•</span></span><span>geeks bunker</span></a>
  <nav aria-label="Main navigation">
   <button data-view="home" class="nav-item active" aria-current="page">Home</button>
-  <button data-view="games" class="nav-item">Game library</button>
+  <button data-view="g8mes" class="nav-item">G8mes library</button>
   <button data-view="links" class="nav-item">Websites</button>
   <button data-view="p8y" class="nav-item">Geekfox</button>
+  <button data-view="ai" class="nav-item">YourGeek</button>
   <button data-view="settings" class="nav-item">Settings</button>
  </nav>
  <div class="header-tools"><time id="dashboard-clock"></time><button id="music-shortcut" class="music-shortcut" aria-label="Turn background music off" aria-pressed="true" title="Turn background music off"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4Z"/><path id="music-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path id="music-muted" class="hidden" d="m16 9 5 6m0-6-5 6"/></svg></button><button id="profile-btn" class="profile-button" aria-label="Customize your profile"><span class="avatar" id="profile-avatar">P</span><span id="profile-name">Player</span></button></div>
 </header>
 <main>
  <section id="view-home" class="page home-page">
-  <div class="welcome"><p class="eyebrow">YOUR SPACE. YOUR GAMES.</p><h1>Welcome back, <span id="welcome-name">Player</span>.</h1><p>Something good to play. A place that feels like you.</p></div>
-  <div class="section-heading"><h2>Jump back in</h2><button class="text-button" data-view="games">View all games <span aria-hidden="true">→</span></button></div>
+  <div class="welcome"><p class="eyebrow">YOUR SPACE. YOUR g8mes.</p><h1>Welcome back, <span id="welcome-name">Player</span>.</h1><p>Something good to play. A place that feels like you.</p></div>
+  <div class="section-heading"><h2>Jump back in</h2><button class="text-button" data-view="g8mes">View all g8mes <span aria-hidden="true">→</span></button></div>
 
-  <div class="home-strip" id="home-games">
-   <div id="recent-games" class="featured-games recent-games" role="group" aria-label="Jump back in"><div class="game-placeholder">Loading your next favorite...</div></div>
+  <div class="home-strip" id="home-g8mes">
+   <div id="recent-g8mes" class="featured-g8mes recent-g8mes" role="group" aria-label="Jump back in"><div class="game-placeholder">Loading your next favorite...</div></div>
 
   </div>
   <div class="section-heading shortcuts-heading"><h2>Make yourself at home</h2><span class="muted">Everything, one click away.</span></div>
   <div class="shortcut-grid">
-   <button class="library-tile" data-view="games"><span class="tile-symbol" aria-hidden="true">▦</span><span><strong>Your game library</strong><small>GN Math + Lumin</small></span><span class="tile-arrow" aria-hidden="true">↗</span></button>
+   <button class="library-tile" data-view="g8mes"><span class="tile-symbol" aria-hidden="true">▦</span><span><strong>Your g8mes library</strong><small>GN Math + Lumin</small></span><span class="tile-arrow" aria-hidden="true">↗</span></button>
    <button class="shortcut source-shortcut" id="home-lumin"><span class="shortcut-icon" aria-hidden="true">▣</span><span><strong>Lumin</strong><small>Explore the Lumin collection</small></span></button>
    <button class="shortcut" data-view="links"><span class="shortcut-icon" aria-hidden="true">↗</span><span><strong>Your websites</strong><small>Saved links & the full built-in collection</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
    <button class="shortcut" id="home-personalize"><span class="shortcut-icon" aria-hidden="true">◐</span><span><strong>Make it yours</strong><small>Wallpapers, colors & your profile</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
-   <button class="shortcut recent-shortcut" id="recent-game"><span class="shortcut-icon" aria-hidden="true">▷</span><span><strong id="recent-title">Ready when you are</strong><small id="recent-description">Your last game will appear here</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
+   <button class="shortcut recent-shortcut" id="recent-game"><span class="shortcut-icon" aria-hidden="true">▷</span><span><strong id="recent-title">Ready when you are</strong><small id="recent-description">Your last g8me will appear here</small></span><span class="shortcut-arrow" aria-hidden="true">→</span></button>
   </div>
-  <div class="section-heading home-catalog-heading"><h2>All your games</h2></div>
-  <div class="home-controls"><label class="search-field"><input id="home-game-search" type="search" placeholder="Search all games" aria-label="Search games on Home" /></label><label>Source <select id="home-game-source"><option value="gn">GN Math</option><option value="lumin">Lumin</option></select></label><span id="home-game-count" role="status"></span><div class="home-row-arrows"><button id="home-games-prev" aria-label="Previous games">←</button><button id="home-games-next" aria-label="Next games">→</button></div></div>
-  <div id="featured-games" class="home-catalog" role="group" aria-label="All games on Home"></div>
+  <div class="section-heading home-catalog-heading"><h2>All your g8mes</h2></div>
+  <div class="home-controls"><label class="search-field"><input id="home-game-search" type="search" placeholder="Search all g8mes" aria-label="Search g8mes on Home" /></label><label>Source <select id="home-game-source"><option value="gn">GN Math</option><option value="lumin">Lumin</option></select></label><span id="home-game-count" role="status"></span><div class="home-row-arrows"><button id="home-g8mes-prev" aria-label="Previous g8mes">←</button><button id="home-g8mes-next" aria-label="Next g8mes">→</button></div></div>
+  <div id="featured-g8mes" class="home-catalog" role="group" aria-label="All g8mes on Home"></div>
  </section>
- <section id="view-games" class="page hidden">
-  <div class="page-heading"><div><p class="eyebrow">ALL YOUR FAVORITES</p><h1>Game library</h1></div><div class="provider-tabs" role="tablist" aria-label="Game source"><button id="provider-gn" role="tab" aria-selected="true" data-source="gn">GN Math</button><button id="provider-lumin" role="tab" tabindex="-1" aria-selected="false" data-source="lumin">Lumin</button></div></div>
-  <div class="library-controls"><label class="search-field"><span aria-hidden="true">⌕</span><input id="g8me-search-input" type="search" placeholder="Search your next game" aria-label="Search games" autocomplete="off"></label><p id="g8me-catalog-status" role="status">Loading GN Math...</p></div>
+ <section id="view-g8mes" class="page hidden">
+  <div class="page-heading"><div><p class="eyebrow">ALL YOUR FAVORITES</p><h1>G8mes library</h1></div><div class="provider-tabs" role="tablist" aria-label="g8me source"><button id="provider-gn" role="tab" aria-selected="true" data-source="gn">GN Math</button><button id="provider-lumin" role="tab" tabindex="-1" aria-selected="false" data-source="lumin">Lumin</button></div></div>
+  <div class="library-controls"><label class="search-field"><span aria-hidden="true">⌕</span><input id="g8me-search-input" type="search" placeholder="Search your next g8me" aria-label="Search g8mes" autocomplete="off"></label><p id="g8me-catalog-status" role="status">Loading GN Math...</p></div>
   <button id="g8me-retry-btn" class="button hidden" type="button">Try again</button>
-  <div id="g8mes-grid" class="game-grid" aria-label="Games" aria-busy="true"></div>
+  <div id="g8mes-grid" class="game-grid" aria-label="g8mes" aria-busy="true"></div>
   <button id="g8me-load-more-btn" class="button more-button hidden" type="button"><span class="button-text">Load more</span></button>
  </section>
  <section id="view-links" class="page hidden">
@@ -57,21 +58,29 @@
   <div class="section-heading"><h2>Built-in collection</h2><span class="muted" id="builtin-count"></span></div><label class="search-field links-search"><span aria-hidden="true">⌕</span><input type="search" id="website-search" aria-label="Search websites" placeholder="Search websites"></label><div id="built-in-links-grid" class="website-grid"></div><button id="website-more" class="button more-button hidden">Load more websites</button>
  </section>
  <section id="view-p8y" class="page hidden">
-  <div class="page-heading"><div><p class="eyebrow">YOUR BROWSING SPACE</p><h1>Geekfox</h1></div><div class="geekfox-page-actions"><button class="button" id="geekfox-fullscreen">Fullscreen</button><button class="button" id="geekfox-clear">Close all tabs</button></div></div>
+  <div class="page-heading"><div><p class="eyebrow">YOUR BROWSING SPACE</p><h1>Geekfox</h1></div><div class="geekfox-page-actions"><button class="button" id="geekfox-personalize">Customize</button><button class="button" id="geekfox-fullscreen">Fullscreen</button><button class="button" id="geekfox-clear">Close all tabs</button></div></div>
   <section id="geekfox-browser" class="geekfox-browser" aria-label="Geekfox browser">
-   <div class="geekfox-tabbar"><span class="geekfox-brand" aria-hidden="true">G</span><div id="geekfox-tabs" class="geekfox-tabs" role="tablist" aria-label="Browser tabs"></div><button id="geekfox-add-tab" class="geekfox-icon" aria-label="New tab">+</button><button id="geekfox-exit-fullscreen" class="geekfox-fullscreen-exit">Exit fullscreen</button></div>
+   <div class="geekfox-tabbar"><span class="geekfox-brand" aria-hidden="true"><img src="images/geekfox.png" alt=""></span><div id="geekfox-tabs" class="geekfox-tabs" role="tablist" aria-label="Browser tabs"></div><button id="geekfox-add-tab" class="geekfox-icon" aria-label="New tab">+</button><button id="geekfox-exit-fullscreen" class="geekfox-fullscreen-exit">Exit fullscreen</button></div>
    <div class="geekfox-toolbar"><button id="geekfox-back" class="geekfox-icon" aria-label="Back" disabled>←</button><button id="geekfox-forward" class="geekfox-icon" aria-label="Forward" disabled>→</button><button id="geekfox-reload" class="geekfox-icon" aria-label="Reload page" disabled>↻</button><button id="geekfox-home" class="geekfox-icon" aria-label="New tab page">⌂</button><form id="geekfox-address-form"><label class="geekfox-address-wrap"><span aria-hidden="true">⌕</span><input id="geekfox-address" type="text" aria-label="Search or enter address" placeholder="Search with DuckDuckGo or enter address" autocomplete="off" spellcheck="false" autocapitalize="off" inputmode="url"><button class="geekfox-go" type="submit" aria-label="Go">→</button></label></form><button id="geekfox-bookmark" class="geekfox-icon" aria-label="Bookmark this page" aria-pressed="false" disabled>☆</button></div>
    <div id="geekfox-pages" class="geekfox-pages"></div>
    <div class="geekfox-statusbar"><span class="geekfox-connection" aria-hidden="true"></span><span id="geekfox-status" role="status">New tab · search or enter a website address</span><span class="geekfox-free">No account required</span></div>
   </section>
  </section>
+ <section id="view-ai" class="page hidden">
+  <div class="page-heading yourgeek-heading"><div class="yourgeek-identity"><span class="yourgeek-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="m7 7 9 10 9-10M16 17v9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><p class="eyebrow">YOUR SPACE TO THINK</p><h1>YourGeek</h1><a class="yourgeek-powered" href="https://duck.ai/" target="_blank" rel="noopener noreferrer">Powered by Duck.ai <span aria-hidden="true">↗</span></a></div></div><div class="ai-actions"><button class="button primary" id="ai-new-chat">＋ New chat</button><button class="button" id="ai-reload">Reload</button><button class="button" id="ai-fullscreen">Fullscreen</button></div></div>
+  <section id="ai-browser" class="ai-browser" aria-label="YourGeek chat, powered by Duck.ai">
+   <div class="ai-browser-bar"><div class="yourgeek-workspace-label"><span class="yourgeek-connection" aria-hidden="true"></span><span>YOURGEEK</span><span class="yourgeek-room">/ Chat workspace</span></div><p id="ai-status" role="status">Ready when you are.</p><button class="button" id="ai-exit-fullscreen">Exit fullscreen</button></div>
+   <div class="ai-stage"><div id="ai-frame-host"></div><div id="ai-loading" class="ai-loading"><h2 id="ai-loading-title">Opening YourGeek</h2><p id="ai-loading-description">Connecting through Geekfox…</p><button class="button hidden" id="ai-retry">Try again</button><a class="text-button" href="https://duck.ai/" target="_blank" rel="noopener noreferrer">Open Duck.ai directly ↗</a></div></div>
+  </section>
+  <p class="small muted ai-footnote">Powered by Duck.ai. Choose from its live model menu in the composer. Free models need no sign-in; premium models retain their subscription requirements. DuckDuckGo’s terms and usage limits apply.</p>
+ </section>
  <section id="view-settings" class="page hidden">
   <div class="page-heading"><div><p class="eyebrow">JUST THE WAY YOU LIKE IT</p><h1>Settings</h1></div></div>
   <div class="settings-grid"><section class="panel"><h2>Your dashboard</h2><p class="muted">Your profile, your colors, your wallpaper.</p><button class="button primary" id="settings-personalize">Personalize dashboard</button><label class="setting-row">Background music<input type="checkbox" id="music-toggle"></label><label class="music-volume-label" for="music-volume">Music volume <output id="music-volume-value">18%</output></label><input id="music-volume" type="range" min="0" max="100" step="1" value="18" aria-label="Background music volume"><p id="music-status" class="small muted" role="status">Music starts after your first click or tap.</p><label class="setting-row">Select sounds<input type="checkbox" id="sound-toggle"></label><label class="setting-row">Reduce motion<input type="checkbox" id="motion-toggle"></label></section>
   <section class="panel"><h2>Browser tab</h2><form id="tab-settings-form"><label>Tab title<input id="tab-title-input" placeholder="Geeks Bunker" maxlength="100"></label><label>Tab icon<select id="tab-icon-select"><option value="">Geeks Bunker</option><option value="https://google.com/favicon.ico">Google</option><option value="https://www.google.com/s2/favicons?domain=parents.canvaslms.com&sz=48">Canvas</option><option value="https://login.classlink.com/favicon.ico">Classlink</option></select></label><button class="button" type="submit">Save tab settings</button><p class="small muted" id="tab-status" role="status"></p></form></section>
-  <section class="panel"><h2>A little more space</h2><p class="muted">Open the dashboard in a separate blank tab.</p><button class="button" id="about-blank-btn">Open in about:blank ↗</button></section><section class="panel"><h2>About Geeks Bunker</h2><p class="muted">Free to explore. Free to play.<br>Never pay for access or a link.</p><button class="text-button" data-view="credits">Credits & information →</button></section></div>
+  <section class="panel"><h2>A little more space</h2><p class="muted">Open the dashboard in a separate blank tab.</p><button class="button" id="about-blank-btn">Open in about:blank ↗</button></section><section class="panel"><h2>About Geeks Bunker</h2><p class="muted">Free to explore. Free to play.<br>Never pay for access or a link.</p><button class="button" id="terms-open">Terms of Service</button><button class="text-button" data-view="credits">Credits & information →</button></section></div>
  </section>
- <section id="view-credits" class="page hidden"><div class="page-heading"><div><p class="eyebrow">THE PEOPLE BEHIND THE BUNKER</p><h1>Credits</h1></div><button class="button" data-view="home">Back home</button></div><div class="panel credits-panel"><h2>Geeks Bunker</h2><dl><dt>Created by</dt><dd>3L Enterprises LLC.</dd><dt>Website helpers</dt><dd>Plentify · Zaka</dd><dt>Link contributors</dt><dd>Bird Cat · Offensive Asian</dd><dt>Game libraries</dt><dd>GN Math · Lumin</dd><dt>Wallpapers</dt><dd>Your selected Windows, PlayStation & macOS artwork</dd></dl><p class="muted">Access is entirely free. If you paid for access or a link, request a refund. Use the site responsibly.</p></div></section>
+ <section id="view-credits" class="page hidden"><div class="page-heading"><div><p class="eyebrow">THE PEOPLE BEHIND THE BUNKER</p><h1>Credits</h1></div><button class="button" data-view="home">Back home</button></div><div class="panel credits-panel"><h2>Geeks Bunker</h2><dl><dt>Created by</dt><dd>3L Enterprises LLC.</dd><dt>Website helpers</dt><dd>Plentify · Zaka</dd><dt>Link contributors</dt><dd>Bird Cat · Offensive Asian</dd><dt>g8me libraries</dt><dd>GN Math · Lumin</dd><dt>Wallpapers</dt><dd>Your selected Windows, PlayStation & macOS artwork</dd></dl><p class="muted">Access is entirely free. If you paid for access or a link, request a refund. Use the site responsibly.</p></div></section>
 </main>
 <footer class="dashboard-footer"><span>GEEKS BUNKER <span class="footer-dot">·</span> YOUR PLAY STARTS HERE</span><div><a href="https://discord.gg/Nqye6a7bTm" target="_blank" rel="noopener noreferrer">Discord ↗</a><a href="https://github.com/idontknow73671/Geeks-bunker" target="_blank" rel="noopener noreferrer">GitHub ↗</a><button data-view="credits">© 2026 3L Enterprises LLC.</button></div></footer>
 <dialog id="personalize-dialog" class="setup-dialog" aria-labelledby="setup-title"><form id="personalize-form">
@@ -79,9 +88,47 @@
  <h1 id="setup-title">Make yourself at home.</h1><p class="muted setup-description">A few things to make this space yours. You can change these anytime.</p>
  <div class="setup-fields"><label>What should we call you?<input id="display-name-input" placeholder="Player" maxlength="24" autocomplete="nickname"></label><fieldset><legend>Pick your color</legend><div id="accent-choices" class="accent-choices"></div></fieldset></div>
  <fieldset><legend>Choose your backdrop</legend><div id="wallpaper-choices" class="wallpaper-choices"></div></fieldset>
+ <fieldset class="custom-backgrounds"><legend>Your own backgrounds</legend><p class="small muted">Choose separate images for your dashboard and Geekfox new-tab page. Images stay on this browser. Save changes to keep them.</p><div class="background-upload-grid"><section class="background-upload"><label for="dashboard-background-upload">Dashboard</label><img id="dashboard-background-preview" class="background-preview" alt="Dashboard background preview" hidden><input type="file" id="dashboard-background-upload" accept="image/png,image/jpeg,image/webp,image/avif"><p class="small muted" id="dashboard-background-status" role="status"></p><button class="button quiet" type="button" id="dashboard-background-reset">Use default</button></section><section class="background-upload"><label for="geekfox-background-upload">Geekfox new-tab page</label><img id="geekfox-background-preview" class="background-preview" alt="Geekfox new-tab page background preview" hidden><input type="file" id="geekfox-background-upload" accept="image/png,image/jpeg,image/webp,image/avif"><p class="small muted" id="geekfox-background-status" role="status"></p><button class="button quiet" type="button" id="geekfox-background-reset">Use default</button></section></div></fieldset>
  <div class="setup-bottom"><p class="muted small">Saved on this browser. No account needed.</p><div><button type="button" class="button quiet" id="setup-cancel">Use defaults</button><button type="submit" class="button primary" id="setup-save">Let's play <span aria-hidden="true">→</span></button></div></div>
 </form></dialog>
-<section id="gn-game-player" class="hidden" aria-label="Game player"><div class="gn-player-toolbar"><h2 id="gn-player-title">Game</h2><button id="gn-reload-btn" class="button">Reload</button><button id="gn-fullscreen-btn" class="button"><span class="button-text">Fullscreen</span></button><button id="gn-close-btn" class="button primary">Back to library</button></div><div class="gn-player-stage"><div id="gn-frame-host"></div><div id="gn-player-message" class="gn-player-message"><p id="gn-player-status" role="status">Loading game...</p><button id="gn-retry-btn" class="button hidden">Try again</button></div></div></section>
+<dialog id="terms-dialog" class="setup-dialog terms-dialog" aria-labelledby="terms-title">
+ <header class="terms-heading"><p class="eyebrow">PLEASE READ BEFORE EXPLORING</p><h1 id="terms-title">Geeks Bunker — Terms of Service</h1></header>
+ <div id="terms-copy" class="terms-copy" tabindex="0" role="region" aria-label="Terms of Service text">
+ <p><strong>© 2026 3L Enterprises</strong></p>
+ <p><strong>Last Updated: October 22, 2026</strong></p>
+ <h2>1. Disclaimer</h2>
+ <p>Geeks Bunker is a free browser-based gaming website provided for entertainment purposes.</p>
+ <p><strong>3L Enterprises and Geeks Bunker are not responsible for any trouble, disciplinary action, or consequences you may face from using this website at school, work, or elsewhere, to the extent permitted by law.</strong></p>
+ <p>You are responsible for following the rules of your school, workplace, or organization. Use Geeks Bunker at your own discretion.</p>
+ <h2>2. Unauthorized Commercialization</h2>
+ <p><strong>GEEKS BUNKER IS COMPLETELY FREE. DO NOT PAY ANYONE FOR ACCESS TO THIS WEBSITE.</strong></p>
+ <p>Geeks Bunker and 3L Enterprises do not authorize third parties to sell access to Geeks Bunker, its g8mes, or its services.</p>
+ <p>If you have paid someone to access Geeks Bunker, you should immediately request a refund from the seller. If they refuse, contact your payment provider to dispute the charge.</p>
+ <p>3L Enterprises cannot guarantee refunds for unauthorized payments made to third parties.</p>
+ <h2>3. Copyright and Ownership</h2>
+ <p>Geeks Bunker is a project of <strong>3L Enterprises</strong>.</p>
+ <p>Original website code, designs, branding, and other materials created by 3L Enterprises belong to their respective copyright owners, including 3L Enterprises where applicable.</p>
+ <p>Some g8mes, images, and other materials available through Geeks Bunker may be owned by third-party developers or publishers.</p>
+ <p><strong>3L Enterprises does not claim ownership of third-party g8mes or copyrighted materials.</strong></p>
+ <p>All rights to those materials remain with their respective owners.</p>
+ <p>If copyrighted content is hosted or displayed without proper authorization, the copyright holder may request its removal. We will review legitimate copyright complaints and remove infringing material where appropriate.</p>
+ <h2>4. Third-Party G8mes</h2>
+ <p>Geeks Bunker may host, embed, or link to g8mes developed by other individuals or organizations.</p>
+ <p>3L Enterprises does not necessarily develop, own, or endorse these g8mes.</p>
+ <p>G8mes may be modified, removed, or become unavailable without notice.</p>
+ <h2>5. No Guarantees</h2>
+ <p>Geeks Bunker is provided <strong>"AS IS"</strong>, without guarantees regarding availability, compatibility, or functionality.</p>
+ <p>3L Enterprises is not responsible for website interruptions, broken g8mes, or problems caused by external websites, to the extent permitted by law.</p>
+ <h2>6. Contact and Copyright Requests</h2>
+ <p>For copyright concerns, unauthorized commercialization reports, or other inquiries, contact:</p>
+ <p><strong>3L Enterprises</strong><br><a href="mailto:3lenterprisesofficial@gmail.com">3lenterprisesofficial@gmail.com</a></p>
+ <hr>
+ <p><strong>© 2026 3L Enterprises. All rights reserved to original materials.</strong></p>
+ <p><em>By using Geeks Bunker, you acknowledge these terms and accept responsibility for how and where you access the website.</em></p>
+ </div>
+ <footer class="terms-footer"><span class="small muted">Free to play. Please use responsibly.</span><button type="button" id="terms-close" class="button primary">Close notice</button></footer>
+</dialog>
+<section id="gn-game-player" class="hidden" aria-label="g8me player"><div class="gn-player-toolbar"><h2 id="gn-player-title">g8me</h2><span id="gn-save-status" role="status"></span><button id="gn-reload-btn" class="button">Reload</button><button id="gn-fullscreen-btn" class="button"><span class="button-text">Fullscreen</span></button><button id="gn-close-btn" class="button primary">Back to library</button></div><div class="gn-player-stage"><div id="gn-frame-host"></div><div id="gn-player-message" class="gn-player-message"><p id="gn-player-status" role="status">Loading g8me...</p><button id="gn-retry-btn" class="button hidden">Try again</button></div></div></section>
 <div id="toast" class="toast hidden" role="status"></div>
 </body>
 </html>
