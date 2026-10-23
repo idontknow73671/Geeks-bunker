@@ -92,7 +92,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         const frame = host.querySelector('iframe'), data = event.data;
         if (!activeGame || event.source !== frame?.contentWindow || data?.type !== 'gb-g8me-save' ||
             data.id !== String(activeGame.id) || data.provider !== activeGame.provider) return;
-        saveStatus.textContent = data.state === 'saved' ? 'Progress saved on this browser' : data.state === 'ready' ?
+        saveStatus.textContent = data.state === 'saving' ? 'Saving progress…' : data.state === 'saved' ? 'Progress saved on this browser' : data.state === 'ready' ?
             'Autosave ready' : data.detail || 'Browser storage unavailable';
     });
 
@@ -228,7 +228,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         const request = new AbortController();
         activeRequest = request;
         const current = ++generation;
-        await flushG8meFrame(host.querySelector('iframe'));
+        if (await flushG8meFrame(host.querySelector('iframe')) === false) return;
         if (current !== generation || request.signal.aborted) return;
         activeGame = game;
         host.replaceChildren();
@@ -287,7 +287,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         sound();
         ++generation;
         activeRequest?.abort();
-        await flushG8meFrame(host.querySelector('iframe'));
+        if (await flushG8meFrame(host.querySelector('iframe')) === false) { closing = false; close.disabled = false; return; }
         activeGame = null;
         // Removing the iframe stops its scripts, audio, timers, and network activity.
         host.replaceChildren();

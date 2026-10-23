@@ -160,6 +160,13 @@ horizontal tabs, address/search bar, back/forward history, reload, bookmarks,
 new-tab shortcuts, close-tab controls, and fullscreen. Bookmarks stay in localStorage;
 open tabs are deliberately ephemeral. Switching tabs retains the loaded pages.
 
+Compatibility profile offers Automatic (the real browser identity), Firefox / Gecko,
+and Chrome / Chromium. The latter two change outgoing User-Agent headers and the
+page-visible navigator identity; they do not install or switch rendering engines.
+Changing profiles reloads open Geekfox tabs, and the selection persists under
+gbGeekfoxProfile. YourGeek retains the default browser identity independently.
+Validated both outgoing headers and page-visible identity, plus reload persistence.
+
 The browser controller runs in the outer SVG document, registers the companion
 worker, and uses the reference's client-side rewriting engine and shared relay pool.
 A content iframe still renders each rewritten website, as in the reference; it is
@@ -197,6 +204,19 @@ clear another title's new saves or dashboard settings. Native IndexedDB remains
 intact to preserve existing saves. Completed write transactions update save status;
 closing/reloading a title waits briefly for pending writes and supported FS/IDBFS
 sync. Save status reports unavailable/full storage rather than claiming success.
+
+Geometry Dash (GN Math ID 868) requests native saves every three seconds and
+before leaving. This port writes AppData/CCGameManager.dat and AppData/CCLocalLevels.dat
+to IndexedDB but reads them directly from /Resources on startup; the adapter
+corrects those two restore paths without clearing existing records.
+Its WASM save hook queues work on the game loop: the player now
+waits for that work, delayed database opens, and subsequent write transactions
+before destroying the frame. Pending writes keep the player open for retry.
+This preserves the title's native records and settings, not an in-progress jump.
+Verified October 23, 2026 in the built SVG: played Stereo Madness to 1%, closed
+the player, reloaded the entire site, reopened the title, and confirmed 1% restored.
+Regression checks cover delayed native saves, database-open/write timing, corrected
+restore paths, title isolation, legacy storage, and filesystem flush.
 
 The GN Math 2048 AI entry lacks native persistence, so it additionally stores and
 restores its board, score, turn, and win/loss flags after every move. Its existing

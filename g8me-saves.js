@@ -4,6 +4,9 @@ function installG8meStorage(identity) {
     let backing, ready = false;
     let flushTimer;
     const pendingWrites = new Set();
+    const pendingOpens = new Set();
+    let lastStorageActivity = 0;
+    let flushInFlight = null;
     const visible = key => key !== '__check__' && key !== '__cleared__' && !key.startsWith('__removed__:');
     const notify = (state, detail = '') => {
         parent.postMessage({type:'gb-g8me-save', id:String(identity.id), provider:identity.provider, state, detail}, '*');
@@ -15,6 +18,7 @@ function installG8meStorage(identity) {
     } catch { notify('unavailable', 'Browser storage is unavailable.'); }
     function checkpoint() {
         clearTimeout(flushTimer);
+        flushTimer = null;
         try {
             const records = JSON.parse(backing.getItem('gbG8meSaveIndex') || '{}');
             records[identity.provider + ':' + identity.id] = {name:identity.name, updatedAt:Date.now()};
@@ -97,7 +101,38 @@ function installG8meStorage(identity) {
         }
         catch { ready = false; notify('unavailable','This browser could not isolate title storage.'); }
     }
-    // IndexedDB stays native, preserving existing Unity/IDBFS databases.
+    // An open request can create a write transaction in its success callback.
+    // Track that gap as well as transactions, without renaming native databases.
+    if (window.IDBFactory) {
+        const open = IDBFactory.prototype.open;
+        IDBFactory.prototype.open = function(...args) {
+            // The native port reads these files directly from /Resources, but
+            // persists them with AppData keys. Restore them where it reads.
+            if (identity.provider === 'gn' && String(identity.id) === '868' &&
+                args[0] === 'gdwasm_saves' && typeof window.savePath === 'function' &&
+                !window.savePath.gbRelativeAppData) {
+                const savePath = window.savePath;
+                const corrected = name => {
+                    const path = savePath(name);
+                    return path.replace(/^\/AppData\/(CC(?:GameManager|LocalLevels)\.dat)$/, '/Resources/$1');
+                };
+                corrected.gbRelativeAppData = true;
+                window.savePath = corrected;
+            }
+            const request = open.apply(this,args);
+            let finish;
+            const done = new Promise(resolve => { finish = resolve; });
+            pendingOpens.add(done); lastStorageActivity = Date.now();
+            const complete = () => setTimeout(() => {
+                pendingOpens.delete(done); lastStorageActivity = Date.now(); finish();
+            },0);
+            request.addEventListener('success',complete,{once:true});
+            request.addEventListener('error',() => {
+                notify('unavailable','A save database could not be opened.'); complete();
+            },{once:true});
+            return request;
+        };
+    }
     // Report completed write transactions instead of claiming unsaved RAM is saved.
     if (window.IDBDatabase) {
         const transaction = IDBDatabase.prototype.transaction;
@@ -107,24 +142,54 @@ function installG8meStorage(identity) {
                 let finish;
                 const done = new Promise(resolve => { finish = resolve; });
                 pendingWrites.add(done);
-                result.addEventListener('complete',() => { pendingWrites.delete(done); checkpoint(); finish(); },{once:true});
-                result.addEventListener('abort',() => { pendingWrites.delete(done); finish(); },{once:true});
+                lastStorageActivity = Date.now();
+                result.addEventListener('complete',() => { pendingWrites.delete(done); lastStorageActivity = Date.now(); checkpoint(); finish(); },{once:true});
+                result.addEventListener('abort',() => { pendingWrites.delete(done); lastStorageActivity = Date.now(); notify('unavailable','A save transaction failed.'); finish(); },{once:true});
             }
             return result;
         };
     }
-    async function flush() {
-        const fs = window.FS || window.Module?.FS || window.unityInstance?.Module?.FS;
+    const isGeometryDash = identity.provider === 'gn' && String(identity.id) === '868';
+    function requestNativeSave() {
+        if (!isGeometryDash || !window.__gdGameStarted || !window.Module?._gd_request_save) return false;
+        window.Module._gd_request_save();
+        return true;
+    }
+    // Keep the native save files fresh even when the whole browser tab is closed.
+    if (isGeometryDash) setInterval(() => {
+        if (!document.hidden) try { requestNativeSave(); } catch {}
+    },3000);
+    async function flushNow() {
+        if (requestNativeSave()) {
+            notify('saving');
+            // This native hook queues work for the next WASM game-loop frames.
+            // Waiting only for IDB transactions misses work that has not started.
+            await new Promise(resolve => {
+                const timer = setTimeout(resolve,250);
+                requestAnimationFrame(() => requestAnimationFrame(() => { clearTimeout(timer); resolve(); }));
+            });
+        }
+        const fs = window.FS || window.Module?.FS || window.unityInstance?.Module?.FS || window.gameInstance?.Module?.FS;
         if (fs?.syncfs) await new Promise(resolve => {
             const timer = setTimeout(resolve,1200);
             try { fs.syncfs(false, error => { clearTimeout(timer); if (error) notify('unavailable','Filesystem save failed.'); resolve(); }); }
             catch { clearTimeout(timer); resolve(); }
         });
-        if (pendingWrites.size) await new Promise(resolve => {
-            const timer = setTimeout(resolve,1200);
-            Promise.all([...pendingWrites]).then(() => { clearTimeout(timer); resolve(); });
-        });
+        const started = Date.now();
+        do {
+            await new Promise(resolve => setTimeout(resolve,40));
+            if (!pendingOpens.size && !pendingWrites.size && Date.now() - lastStorageActivity >= 120) break;
+        } while (Date.now() - started < 4000);
+        if (pendingOpens.size || pendingWrites.size) {
+            notify('unavailable','Saving is still pending. Please wait and try again.');
+            return false;
+        }
         if (ready && flushTimer) checkpoint();
+        return true;
+    }
+    function flush() {
+        if (!flushInFlight) flushInFlight = flushNow().finally(() => { flushInFlight = null; });
+        return flushInFlight;
     }
     window.__gbG8meSave = {flush, ready};
     if (ready) notify('ready');
@@ -189,10 +254,10 @@ export function withG8meSaves(html, identity) {
 export async function flushG8meFrame(frame) {
     try {
         const child = frame?.contentWindow;
-        if (!child?.__gbG8meSave) return;
+        if (!child?.__gbG8meSave) return true;
         // Let titles that save on leave commit their current state first.
         child.dispatchEvent(new child.Event('pagehide'));
         child.dispatchEvent(new child.Event('beforeunload'));
-        await child.__gbG8meSave.flush();
-    } catch {}
+        return await child.__gbG8meSave.flush();
+    } catch { return true; }
 }

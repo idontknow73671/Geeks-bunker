@@ -2,6 +2,16 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
     const $ = id => document.getElementById(id);
     const tabs = [];
     let selected = null, nextId = 1, engine = null, pending = null;
+    const profileLabels = {native:'Automatic',gecko:'Firefox / Gecko',chromium:'Chrome / Chromium'};
+    let browserProfile = read('gbGeekfoxProfile','native');
+    if (!Object.hasOwn(profileLabels,browserProfile)) browserProfile = 'native';
+    $('geekfox-profile').value = browserProfile;
+    $('geekfox-profile').addEventListener('change', event => {
+        browserProfile = Object.hasOwn(profileLabels,event.target.value) ? event.target.value : 'native';
+        write('gbGeekfoxProfile',browserProfile);
+        for (const tab of tabs) if (tab.handle) tab.handle.reload();
+        status(profileLabels[browserProfile] + ' identification profile applied. Rendering still uses your current browser.');
+    });
     const shortcuts = [['Wikipedia','https://www.wikipedia.org/'],['Duck.ai','https://duck.ai/'],['DuckDuckGo','https://duckduckgo.com/'],['GitHub','https://github.com/'],['MDN','https://developer.mozilla.org/']];
     const active = () => tabs.find(tab => tab.id === selected);
     function address(value) {
@@ -130,7 +140,7 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
                 const frame = document.createElement('iframe'); frame.className = 'geekfox-content'; frame.title = tab.title;
                 frame.allow = 'fullscreen; autoplay; clipboard-write'; frame.allowFullscreen = true; frame.referrerPolicy = 'no-referrer';
                 tab.panel.replaceChildren(frame);
-                tab.handle = runtime.attach(frame, {url:value => track(tab,value)});
+                tab.handle = runtime.attach(frame, {url:value => track(tab,value)}, {getProfile:() => browserProfile});
                 frame.addEventListener('load', () => {
                     tab.observer?.disconnect();
                     try {

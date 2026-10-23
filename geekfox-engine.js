@@ -3,6 +3,17 @@
     const assets = 'https://cdn.jsdelivr.net/gh/lucideproxy/svg@8b35ef07ef9788b060a78fbb504112e28e134b1d/';
     const pool = ['https://theavancehotel.com', 'https://21baseballacademy.com', 'https://diamondstudsbaseball.com', 'https://broughton-hotel.com', 'https://themannastore.com'];
     let boot = null;
+    const identities = {
+        gecko: {userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0',platform:'Win32',vendor:''},
+        chromium: {userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',platform:'Win32',vendor:'Google Inc.'}
+    };
+    function applyIdentityHeaders(init, identity) {
+        if (!identity) return;
+        const headers = new Headers(init.headers);
+        for (const name of [...headers.keys()]) if (name.toLowerCase().startsWith('sec-ch-ua')) headers.delete(name);
+        headers.set('User-Agent',identity.userAgent);
+        init.headers = [...headers.entries()];
+    }
     const timeout = (promise, ms, message) => {
         let timer;
         return Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms); })]).finally(() => clearTimeout(timer));
@@ -110,10 +121,19 @@
         await timeout(controller.wait(), 20000, 'The browsing engine could not connect.');
         onStatus('Connected to the shared free relay pool.');
         return {
-            attach(element, callbacks) {
+            attach(element, callbacks, options = {}) {
                 const frame = controller.createFrame(element);
                 const plugin = new window._hp75rnc.Plugin('geekfox-' + frame.id);
+                const identity = () => identities[options.getProfile?.()] || null;
+                plugin.tap(frame.hooks.fetch.request, (_,details) => applyIdentityHeaders(details.init,identity()));
                 plugin.tap(frame.hooks.init.post, context => {
+                    const selectedIdentity = identity();
+                    if (selectedIdentity) {
+                        // Identification compatibility only; the host renderer is unchanged.
+                        for (const [name,value] of Object.entries({userAgent:selectedIdentity.userAgent,appVersion:selectedIdentity.userAgent.slice(8),platform:selectedIdentity.platform,vendor:selectedIdentity.vendor,userAgentData:undefined})) {
+                            context.client.Trap('Navigator.prototype.' + name,{get:() => value});
+                        }
+                    }
                     if (!context.isTopLevel) return;
                     callbacks.url(context.client.url.href);
                     plugin.tap(context.client.hooks.lifecycle.navigate, (_, details) => callbacks.url(new URL(details.url, context.client.url.href).href));
