@@ -1,3 +1,4 @@
+import { initializeMedia } from "./media.js";
 import { initializeYourGeek } from "./yourgeek.js";
 import { loadBackgrounds, saveBackgrounds, prepareBackground } from "./appearance.js";
 import { initializeGeekfox } from "./geekfox.js";
@@ -76,6 +77,7 @@ selectSound.preload = 'auto';
 selectSound.volume = .4;
 let audioUnlocked = false;
 let gameIsOpen = false;
+let mediaIsPlaying = false;
 let musicEnabled = read('gbMusicEnabled', true);
 let musicVolume = Math.min(1, Math.max(0, Number(read('gbMusicVolume', .18)) || 0));
 let musicContext;
@@ -93,6 +95,7 @@ function updateMusicControls() {
     $('music-volume').value = String(Math.round(musicVolume * 100));
     $('music-volume-value').textContent = `${Math.round(musicVolume * 100)}%`;
     if (!musicEnabled) $('music-status').textContent = 'Background music is off.';
+    else if (mediaIsPlaying) $('music-status').textContent = 'Background music is paused while media plays.';
     else if (gameIsOpen) $('music-status').textContent = 'Music is paused while a game is open.';
     else if (!audioUnlocked) $('music-status').textContent = 'Music starts after your first click or tap.';
     else if (!menuMusic.paused) $('music-status').textContent = 'Playing softly in the background.';
@@ -114,13 +117,13 @@ function prepareMusicOutput() {
     musicContext?.resume().catch(() => {});
 }
 function syncMusic() {
-    if (!musicEnabled || gameIsOpen || !audioUnlocked) { menuMusic.pause(); updateMusicControls(); return; }
+    if (!musicEnabled || gameIsOpen || mediaIsPlaying || !audioUnlocked) { menuMusic.pause(); updateMusicControls(); return; }
     try { prepareMusicOutput(); } catch { menuMusic.volume = musicVolume; }
     if (!menuMusic.paused) { updateMusicControls(); return; }
     menuMusic.play().then(updateMusicControls).catch(error => {
         if (error.name === 'AbortError') return;
         updateMusicControls();
-        if (musicEnabled && !gameIsOpen) $('music-status').textContent = 'Tap the speaker button to start the music.';
+        if (musicEnabled && !gameIsOpen && !mediaIsPlaying) $('music-status').textContent = 'Tap the speaker button to start the music.';
     });
 }
 function setMusicEnabled(enabled) {
@@ -185,6 +188,11 @@ function updateIndicators() {
         container.style.setProperty('--indicator-x', `${selected.offsetLeft}px`);
         container.style.setProperty('--indicator-width', `${selected.offsetWidth}px`);
         container.classList.add('indicator-ready');
+        if (container.matches('.topbar nav') && container.scrollWidth > container.clientWidth) {
+            const bounds=container.getBoundingClientRect(), item=selected.getBoundingClientRect();
+            if (item.right > bounds.right-8) container.scrollLeft += item.right-bounds.right+8;
+            else if (item.left < bounds.left+8) container.scrollLeft += item.left-bounds.left-8;
+        }
     }
 }
 window.addEventListener('resize', () => requestAnimationFrame(updateIndicators));
@@ -260,7 +268,7 @@ $('personalize-dialog').addEventListener('cancel', event => { event.preventDefau
 $('display-name-input').addEventListener('input', () => { draft.name = $('display-name-input').value.trim() || 'Player'; applyProfile(draft); });
 for (const id of ['profile-btn','home-personalize','settings-personalize','geekfox-personalize']) $(id).addEventListener('click', personalize);
 function showView(name) {
-    if (!['home','g8mes','links','p8y','ai','settings','credits'].includes(name)) name = 'home';
+    if (!['home','g8mes','links','p8y','ai','music','movies','settings','credits'].includes(name)) name = 'home';
     const changed = route !== name;
     route = name;
     document.querySelectorAll('main>.page').forEach(page => page.classList.toggle('hidden', page.id !== `view-${name}`));
@@ -274,12 +282,14 @@ function showView(name) {
     if (name === 'links') loadWebsites();
     if (name === 'p8y') geekfox.open();
     if (name === 'ai') yourGeek.open();
+    media.open(name);
     window.scrollTo({top:0,behavior:'instant'});
 }
 document.addEventListener('click', event => {
     const nav = event.target.closest('[data-view]');
     if (nav) { event.preventDefault(); sound(); showView(nav.dataset.view); }
 });
+const media = initializeMedia({read,write,toast,reveal,onPlayback:playing => { mediaIsPlaying=playing; syncMusic(); }});
 const yourGeek = initializeYourGeek({reveal});
 const geekfox = initializeGeekfox({reveal, toast, read, write, onCustomize:personalize});
 function updateClock() { $('dashboard-clock').textContent = new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).format(new Date()); }

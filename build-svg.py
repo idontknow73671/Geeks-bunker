@@ -30,6 +30,8 @@ def build():
     script = (ROOT / 'script.js').read_text(encoding='utf-8').replace('import { loadLuminCover } from "./lumin.js";', '')
     appearance = (ROOT / 'appearance.js').read_text(encoding='utf-8').replace('export async function ', 'async function ')
     script = script.replace('import { loadBackgrounds, saveBackgrounds, prepareBackground } from "./appearance.js";', appearance)
+    media = (ROOT / 'media.js').read_text(encoding='utf-8').replace('export function initializeMedia', 'function initializeMedia', 1)
+    script = script.replace('import { initializeMedia } from "./media.js";', media)
     yourgeek = (ROOT / 'yourgeek.js').read_text(encoding='utf-8').replace('export function initializeYourGeek', 'function initializeYourGeek', 1)
     script = script.replace('import { initializeYourGeek } from "./yourgeek.js";', yourgeek)
     geekfox = (ROOT / 'geekfox.js').read_text(encoding='utf-8').replace('export function initializeGeekfox', 'function initializeGeekfox', 1)

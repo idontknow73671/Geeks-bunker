@@ -111,7 +111,7 @@ application branding are not included.
 ## Source and rebuilding
 
 Keep these source files for editing: index.html, style.css, script.js, gn-math.js,
-lumin.js, g8me-saves.js, geekfox.js, geekfox-engine.js, geekfox-worker.js, build-svg.py, links.js,
+lumin.js, g8me-saves.js, media.js, geekfox.js, geekfox-engine.js, geekfox-worker.js, build-svg.py, links.js,
 images/wallpapers/, images/geekfox.png, and the two audio/ps4-*.mp3 files.
 
 ```
@@ -261,3 +261,49 @@ welcome area, and composer theme are scoped to the AI view. Powered by Duck.ai
 attribution, provider terms, privacy controls, and the live model menu remain.
 The provider theme attaches after its interface renders and follows navigation;
 if the provider changes its markup, the underlying chat remains available.
+
+
+## AudibleGeek and GeekMovie
+
+These native dashboard sections use the same public Ripple and Pyrite services
+identified on https://account.mtgcgs.org/os. Their interfaces are written here,
+with the dashboard's transparent glass, accent color, wallpapers and reduced-motion
+preferences. Reference application bundles and advertising scripts are not copied.
+Both sections appear in the navigation and on Home.
+
+AudibleGeek searches Ripple tracks/albums, plays its stream URLs, opens albums,
+keeps a queue and liked tracks, and offers previous/next, shuffle, repeat, seeking,
+volume and MP3/lossless/Hi-Res choices. Likes, volume and quality stay in this
+browser. Audio formats depend on the browser and the provider. Local audio files
+also play through the same controls without uploading them anywhere; reopen local
+files after a site reload. The supplied PS4 theme pauses while media is active.
+
+GeekMovie decodes Pyrite's live SvelteKit catalog as data (no script execution),
+providing Popular, Top rated, Discover, All movies, search and a saved watchlist.
+It checks the reference's live playback-source list and opens the chosen source
+through Geekfox. Changing sources or leaving the movie section removes the old
+player. Fullscreen shows only the screen and its Exit fullscreen control.
+
+Catalog and source requests use the Geekfox transport's GET-only mediaJSON helper,
+restricted to the reference origin and its media API/data paths. Artwork comes
+from TMDB image URLs. Ripple audio uses the reference's public stream endpoint.
+No API keys, accounts or server installation are added. The site still publishes
+as index.svg plus geekfox-worker.js; push and purge BOTH files after this update.
+Geekfox reconnects its routing port before navigation and its worker waits for
+reconnection after suspension instead of returning a local missing-file page.
+
+Validation on October 23, 2026: live movie catalog (20 popular and 300 full
+collection entries), Inception search, poster normalization, watchlist persistence
+across a full reload, source switching and toolbar-free fullscreen were checked.
+Desktop and 390-pixel mobile layouts, active navigation visibility and existing
+Geekfox browsing were checked. Local music playback, advancing time, pause and
+duration reporting were checked
+with the supplied MP3. Regression checks cover catalog decoding, malformed table
+references, dashboard-request isolation and suspended-worker routing recovery.
+
+Provider limitations observed during testing: Ripple's online search returned
+"Upstream request failed" on the reference service itself. Its error is displayed
+honestly with Retry and local-file playback. Movie source availability varies:
+one reported no servers for the test title; another presented a Cloudflare check.
+A successful source check means its webpage responds, not a guarantee that the
+movie stream is available. Challenges/terms remain under the visitor's control.

@@ -3,6 +3,7 @@
     const assets = 'https://cdn.jsdelivr.net/gh/lucideproxy/svg@8b35ef07ef9788b060a78fbb504112e28e134b1d/';
     const pool = ['https://theavancehotel.com', 'https://21baseballacademy.com', 'https://diamondstudsbaseball.com', 'https://broughton-hotel.com', 'https://themannastore.com'];
     let boot = null;
+    let mediaTransport = null;
     const identities = {
         gecko: {userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0',platform:'Win32',vendor:''},
         chromium: {userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',platform:'Win32',vendor:'Google Inc.'}
@@ -119,8 +120,32 @@
             _qst476vConfig:{flags:{sourcemaps:false, debugTrampolines:false, debugSourceURL:false, rewriterLogs:false}}
         });
         await timeout(controller.wait(), 20000, 'The browsing engine could not connect.');
+        let reconnecting = null, confirmConnection = null;
+        const ready = controller.methods.ready;
+        controller.methods.ready = async (...args) => { await ready(...args); confirmConnection?.(); confirmConnection=null; };
+        function reconnect() {
+            if (!reconnecting) reconnecting = timeout(new Promise(resolve => {
+                confirmConnection=resolve;
+                // A worker may have been replaced or suspended since the last page.
+                controller.serviceWorkerController=registration.active || worker;
+                controller.setupMessagePort();
+            }),10000,'The Geekfox worker could not reconnect. Reload the dashboard.').finally(()=>{reconnecting=null;});
+            return reconnecting;
+        }
         onStatus('Connected to the shared free relay pool.');
         return {
+            async mediaJSON(address) {
+                const url = new URL(address);
+                if (url.origin !== 'https://account.mtgcgs.org' ||
+                    !/^\/(?:ripple\/api\/|pyrite\/(?:api\/|__data\.json$))/.test(url.pathname)) {
+                    throw new Error('Unsupported media service.');
+                }
+                if (!transport.session) await (mediaTransport ||= timeout(transport.init(),25000,'The media connection timed out.').catch(error => {mediaTransport=null;throw error;}));
+                const response = await transport.request(url,'GET',null,[['Accept','application/json']],AbortSignal.timeout(25000));
+                const data = await new Response(response.body).json();
+                if (response.status < 200 || response.status >= 300) throw new Error(data.error || 'The media service is unavailable.');
+                return data;
+            },
             attach(element, callbacks, options = {}) {
                 const frame = controller.createFrame(element);
                 const plugin = new window._hp75rnc.Plugin('geekfox-' + frame.id);
@@ -139,12 +164,16 @@
                     plugin.tap(context.client.hooks.lifecycle.navigate, (_, details) => callbacks.url(new URL(details.url, context.client.url.href).href));
                 });
                 // Hooks are attached above; keep the plugin alive until this tab closes.
+                let disposed=false, navigation=0;
                 return {
-                    go(url) { frame.go(url); },
+                    go(url) {
+                        const request=++navigation;
+                        reconnect().then(()=>{if(!disposed && request===navigation)frame.go(url);}).catch(error=>{if(!disposed)callbacks.error?.(error);});
+                    },
                     back() { frame.back(); },
                     forward() { frame.forward(); },
                     reload() { frame.reload(); },
-                    dispose() { const index = controller.frames.indexOf(frame); if (index >= 0) controller.frames.splice(index, 1); }
+                    dispose() { disposed=true; const index = controller.frames.indexOf(frame); if (index >= 0) controller.frames.splice(index, 1); }
                 };
             },
             origin
