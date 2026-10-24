@@ -33,7 +33,8 @@ live deployment was performed as part of this redesign.
 
 ## Geekfox connections
 
-Geekfox now uses eight free WISP connections from the Achroma service pool:
+Geekfox now uses ten free WISP connections: DayDream X and Mercury, followed by
+eight connections from the Achroma service pool:
 Krem, Planta, Foto, Shor, Tenspot, RYM, BSFA, and Jure. The old ping-only relay
 selection has been removed. Each candidate must fetch an HTTPS connectivity
 check through its actual transport before it is selected. All eight also fetched
@@ -309,8 +310,8 @@ image endpoint and normalized title fields. Popular, Top rated, Discover, the
 combined collection, search and the saved watchlist remain. The source menu uses
 the reference's VidZee, vidsrc.su and CineSrc player URLs directly, without the
 previous source-list API or shortened links. Source choice persists. Movies use
-a separate Geekfox connection to the chosen Achroma API host's /wisp/ transport;
-regular Geekfox browsing and YourGeek use the automatic fallback pool above.
+a separate Geekfox media connection with the ten-connection fallback pool above;
+regular Geekfox browsing and YourGeek retain their own connection instance.
 The two required publication files remain index.svg and geekfox-worker.js.
 
 Live validation on October 24, 2026 in the built SVG: music discovery returned
@@ -320,3 +321,46 @@ Inception loaded on VidZee, reported its 2:28:07 duration, rendered movie frames
 and advanced beyond two minutes; pause/resume and toolbar-free fullscreen worked.
 These checks confirm the tested streams worked at that time, not that every
 provider/title will always be available. No paid access or API keys were added.
+
+## Media requests on Chromebook
+
+AudibleGeek and GeekMovie send catalog and search requests through Geekfox's
+WISP transport, rather than direct browser fetch calls to the API domains. The
+media transport has the same ten-connection fallback pool and is kept separate
+from open browser tabs. API redirects are followed through the transport too.
+
+Posters, covers, and online audio use same-origin geekfox-content URLs served by
+the companion worker. Audio stays streamed, with Range requests and seeking;
+tracks are not downloaded into large JavaScript blobs. Movie player documents
+and their resources continue through the rewritten Geekfox player. Local music
+files stay local. This requires HTTPS and geekfox-worker.js beside index.svg.
+
+Verification used a local Content Security Policy that blocks direct connections
+to the media API hosts, direct external artwork, and direct external audio. Music
+and movie catalogs, both searches, artwork, music playback/seeking, and movie
+playback worked through p8y under that policy. This reproduces blocked direct
+media requests, not a particular Chromebook's network configuration. A network
+that blocks every WISP endpoint can still prevent the connection itself.
+
+## Additional jsDelivr p8y projects
+
+The DayDream X static deployment is available at
+https://cdn.jsdelivr.net/gh/NightProxy/DD-Static/dist/index.svg . Its published
+connection generator uses a 16–32 character subdomain beneath
+nightwisp.me.cdn.cloudflare.net, with /wisp/ as the WebSocket path. Geekfox uses
+one stable subdomain in that format, geeksbunkerconnect, rather than generating
+new addresses on each request. Mercury's wisp.mercurywork.shop/wisp/ endpoint
+is documented by the independent vi SVG project's README. Both fetched
+Wikipedia successfully during local testing. They are tried before the previous
+pool and also serve the media transport.
+
+The independent vi SVG front end was also inspected with Mercury configured:
+https://cdn.jsdelivr.net/gh/zaka13alt/svgembeds@main/uvv.svg?wisp=wss%3A%2F%2Fwisp.mercurywork.shop%2Fwisp%2F
+
+That vi front end failed its own navigation test and is not linked from the app;
+Mercury worked through Geekfox's transport. Both front-end URLs contain
+cdn.jsdelivr.net. Their relay hostnames are separate;
+these links do not make the relay traffic travel through jsDelivr itself. The
+PeteZah static deployment was also inspected, but its advertised fallback relay
+failed a real fetch and was not added. Mirrors of Lucide were not counted as
+independent providers. No guarantee is made about reachability on a school network.

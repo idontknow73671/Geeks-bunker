@@ -4,12 +4,14 @@ export function initializeMedia({read,write,toast,reveal,onPlayback}) {
     const apiPool = ['https://api.spf50krem.com','https://api.tuplantaforma.com','https://api.fotograflar.com'];
     let service=read('gbMediaAPI',apiPool[0]);if(!apiPool.includes(service))service=apiPool[0];
     const engine = () => (window.parent.GeekfoxEngine || window.GeekfoxEngine).startMedia(service);
+    const mediaFetch = async (url,options) => (await engine()).fetch(url,options);
+    const mediaURL = async url => (await engine()).resourceURL(url);
     async function api(path) {
         if(!/^\/api\/(?:music\/ytm\/|movies\/)/.test(path))throw new Error('Unsupported media request.');
         let failure;
         for(const origin of [service,...apiPool.filter(host=>host!==service)]) {
             try {
-                const response=await fetch(origin+path,{credentials:'omit',signal:AbortSignal.timeout(15000)});
+                const response=await mediaFetch(origin+path,{signal:AbortSignal.timeout(30000)});
                 if(!response.ok)throw new Error('Media service returned '+response.status+'.');
                 let result;
                 if(response.headers.get('Content-Type')?.includes('text/event-stream')) {
@@ -36,11 +38,11 @@ export function initializeMedia({read,write,toast,reveal,onPlayback}) {
     };
     function image(url,className) {
         const node=element('img',className);node.alt='';node.loading='lazy';
-        try { const address=new URL(url);if(address.protocol==='https:'||address.protocol==='blob:')node.src=address.href; }catch{}
+        try { const address=new URL(url);if(address.protocol==='blob:')node.src=address.href;else if(address.protocol==='https:')mediaURL(address.href).then(value=>{node.src=value;}).catch(()=>node.remove()); }catch{}
         node.addEventListener('error',()=>node.remove(),{once:true});return node;
     }
     const clock = seconds => Number.isFinite(seconds) ? Math.floor(seconds/60)+':'+String(Math.floor(seconds%60)).padStart(2,'0') : '0:00';
-    const audio=new Audio();audio.preload='metadata';
+    const audio=new Audio();audio.preload='metadata';audio.hidden=true;document.body.append(audio);
     let current=null,queue=[],position=-1,shuffle=false,repeat=false,musicView='search',lastSearch='',musicRequest=0;
     let liked=read('gbAudibleLiked',[]);if(!Array.isArray(liked))liked=[];
     audio.volume=Math.max(0,Math.min(1,Number(read('gbAudibleVolume',.65))||0));$('ag-volume').value=audio.volume;
@@ -91,12 +93,17 @@ export function initializeMedia({read,write,toast,reveal,onPlayback}) {
             $('ag-retry').classList.remove('hidden');
         }
     }
+    let audioRequest=0;
     async function playTrack(track,seek=0) {
-        audio.pause();current=track;now();
-        audio.src=track.local?track.url:service+'/api/sp/audio/'+encodeURIComponent(track.id);
-        $('ag-status').textContent='Loading '+track.title+'…';
-        if(seek)audio.addEventListener('loadedmetadata',()=>{audio.currentTime=Math.min(seek,audio.duration||seek);},{once:true});
-        try{await audio.play();}catch(error){if(error.name!=='AbortError'){$('ag-status').textContent='This track couldn’t play. The music service may be unavailable, or this format may not be supported.';now();}}
+        const request=++audioRequest;audio.pause();audio.removeAttribute('src');audio.load();current=track;now();
+        $('ag-status').textContent='Loading '+track.title+' through p8y…';
+        try {
+            const url=track.local?track.url:await mediaURL(service+'/api/sp/audio/'+encodeURIComponent(track.id));
+            if(request!==audioRequest)return;
+            audio.src=url;
+            if(seek)audio.addEventListener('loadedmetadata',()=>{audio.currentTime=Math.min(seek,audio.duration||seek);},{once:true});
+            await audio.play();
+        }catch(error){if(request!==audioRequest)return;if(error.name!=='AbortError'){$('ag-status').textContent='This track couldn’t play. The music service may be unavailable, or this format may not be supported.';now();}}
     }
     function advance(direction) {
         if(!queue.length)return;
@@ -125,7 +132,8 @@ export function initializeMedia({read,write,toast,reveal,onPlayback}) {
         if(tracks.length){queue.push(...tracks);position=queue.length-tracks.length;playTrack(queue[position]);setMusicView('queue');}
         event.target.value='';
     });
-    audio.addEventListener('play',()=>{now();playback();$('ag-status').textContent='Playing '+current.title;});
+    audio.addEventListener('play',()=>{now();playback();});
+    audio.addEventListener('playing',()=>{if(current)$('ag-status').textContent='Playing '+current.title;});
     audio.addEventListener('pause',()=>{now();playback();if(current)$('ag-status').textContent='Paused '+current.title;});
     audio.addEventListener('error',()=>{$('ag-status').textContent='Playback unavailable. Try another track or open a music file from your device.';now();playback();});
     audio.addEventListener('timeupdate',()=>{$('ag-elapsed').textContent=clock(audio.currentTime);$('ag-duration').textContent=clock(audio.duration);$('ag-seek').disabled=!Number.isFinite(audio.duration);$('ag-seek').value=Number.isFinite(audio.duration)?String(audio.currentTime/audio.duration*1000):'0';});

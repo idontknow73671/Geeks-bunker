@@ -1,7 +1,10 @@
 /* The engine lives in the outer document so its worker has an HTTPS page URL. */
 (() => {
     const assets = 'https://cdn.jsdelivr.net/gh/lucideproxy/svg@8b35ef07ef9788b060a78fbb504112e28e134b1d/';
+    // Additional providers identified from their published CDN deployments.
     const connections = [
+        ['daydream','DayDream X','https://geeksbunkerconnect.nightwisp.me.cdn.cloudflare.net'],
+        ['mercury','Mercury','https://wisp.mercurywork.shop'],
         ['krem','Krem','https://api.spf50krem.com'],
         ['planta','Planta','https://api.tuplantaforma.com'],
         ['foto','Foto','https://api.fotograflar.com'],
@@ -138,7 +141,7 @@
         scripts.set(path,loading);
         return loading;
     }
-    async function initialize(onStatus, mediaOrigin = null) {
+    async function initialize(onStatus, transportGroup = 'browsing') {
         if (!isSecureContext || !navigator.serviceWorker) throw new Error('Geekfox needs HTTPS or localhost.');
         onStatus('Starting the browsing engine…');
         const base = new URL('.', location.href);
@@ -155,8 +158,8 @@
         await loadScript('2izar/ypk98g.js');
         await loadScript('dfkw6/jusz03.js');
         // Separate module instances keep media and browser connection settings independent.
-        const transportModule = await import(assets + 'assets/' + 'p' + 'roxy-runtime-hRo6K69j-04a19445.js?geekfox=' + encodeURIComponent(mediaOrigin || 'browsing'));
-        const network = createConnections(transportModule.L,onStatus,mediaOrigin);
+        const transportModule = await import(assets + 'assets/' + 'p' + 'roxy-runtime-hRo6K69j-04a19445.js?geekfox=' + encodeURIComponent(transportGroup));
+        const network = createConnections(transportModule.L,onStatus);
         const transport = network.adapter;
         await transport.init();
         const controller = new window._zm9ikyq.Controller({
@@ -184,7 +187,29 @@
             }),10000,'The Geekfox worker could not reconnect. Reload the dashboard.').finally(()=>{reconnecting=null;});
             return reconnecting;
         }
+        let resourceFrame=null;
         return {
+            async fetch(url, {signal} = {}) {
+                let target=new URL(url);
+                for(let redirects=0;redirects<=8;redirects++) {
+                    if(target.protocol!=='https:')throw new Error('Media requests require HTTPS.');
+                    const result=await transport.request(target,'GET',null,[],signal);
+                    const headers=new Headers(result.headers);
+                    if([301,302,303,307,308].includes(result.status)&&headers.has('location')) {
+                        await result.body?.cancel();target=new URL(headers.get('location'),target);continue;
+                    }
+                    return new Response([204,205,304].includes(result.status)?null:result.body,{status:result.status,statusText:result.statusText,headers});
+                }
+                throw new Error('The media service redirected too many times.');
+            },
+            async resourceURL(url) {
+                const target=new URL(url);
+                if(target.protocol!=='https:')throw new Error('Media resources require HTTPS.');
+                await reconnect();
+                // A persistent routing context lets native audio keep streaming and Range requests.
+                if(!resourceFrame)resourceFrame=controller.createFrame(document.createElementNS('http://www.w3.org/1999/xhtml','iframe'));
+                return new URL(resourceFrame.prefix+codec.encode(target.href),location.href).href;
+            },
             attach(element, callbacks, options = {}) {
                 const frame = controller.createFrame(element);
                 const plugin = new window._hp75rnc.Plugin('geekfox-' + frame.id);
@@ -222,14 +247,14 @@
             changeConnection:network.change
         };
     }
-    const mediaBoots=new Map();
+    let mediaBoot=null;
     window.GeekfoxEngine = {
         get preference() { return savedConnection(); },
         connections:connections.map(({id,label}) => ({id,label})),
         startMedia(origin,onStatus=()=>{}) {
             if (!['https://api.spf50krem.com','https://api.tuplantaforma.com','https://api.fotograflar.com'].includes(origin)) return Promise.reject(new Error('Unsupported media connection.'));
-            if(!mediaBoots.has(origin))mediaBoots.set(origin,initialize(onStatus,origin).catch(error=>{mediaBoots.delete(origin);throw error;}));
-            return mediaBoots.get(origin);
+            if(!mediaBoot)mediaBoot=initialize(onStatus,'media').catch(error=>{mediaBoot=null;throw error;});
+            return mediaBoot;
         },
         start(onStatus = () => {}) {
             if (!boot) boot = initialize(onStatus).catch(error => { boot = null; throw error; });
