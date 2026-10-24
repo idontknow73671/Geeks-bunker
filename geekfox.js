@@ -2,6 +2,24 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
     const $ = id => document.getElementById(id);
     const tabs = [];
     let selected = null, nextId = 1, engine = null, pending = null;
+    const engineHost = window.parent.GeekfoxEngine || window.GeekfoxEngine;
+    for (const connection of engineHost?.connections || []) {
+        const option = document.createElement('option'); option.value=connection.id; option.textContent=connection.label;
+        $('geekfox-connection').append(option);
+    }
+    $('geekfox-connection').value=engineHost?.preference || 'auto';
+    async function changeConnection() {
+        const button=$('geekfox-reconnect'), picker=$('geekfox-connection'), requested=picker.value;
+        button.disabled=true; picker.disabled=true;
+        try {
+            const runtime=await getEngine();
+            await runtime.changeConnection(requested);
+            for (const tab of tabs) if (tab.url) navigate(tab,tab.url);
+        } catch(error) { status(error.message); $('geekfox-connection-state').textContent=error.message; }
+        finally { button.disabled=false; picker.disabled=false; }
+    }
+    $('geekfox-connection').addEventListener('change',changeConnection);
+    $('geekfox-reconnect').addEventListener('click',changeConnection);
     const profileLabels = {native:'Automatic',gecko:'Firefox / Gecko',chromium:'Chrome / Chromium'};
     let browserProfile = read('gbGeekfoxProfile','native');
     if (!Object.hasOwn(profileLabels,browserProfile)) browserProfile = 'native';
@@ -64,7 +82,7 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
         selected = tab.id;
         tabs.forEach(item => item.panel.hidden = item !== tab);
         renderTabs();
-        status(tab.error || (tab.url ? 'Browsing with Geekfox · shared free relay' : 'New tab · search or enter a website address'));
+        status(tab.error || (tab.url ? 'Browsing with Geekfox · fallback enabled' : 'New tab · search or enter a website address'));
     }
     function newTab() {
         if (tabs.length >= 12) return toast('Close a tab before opening another.');
@@ -105,7 +123,15 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
         if (!pending) {
             const host = window.parent.GeekfoxEngine || window.GeekfoxEngine;
             if (!host) throw new Error('The Geekfox engine was not bundled. Rebuild index.svg.');
-            pending = host.start(status).then(value => engine = value).finally(() => { pending = null; });
+            pending = host.start(status).then(value => {
+                engine=value;
+                value.subscribe(state => {
+                    $('geekfox-connection').value=state.preferred;
+                    $('geekfox-connection-state').textContent=state.text;
+                    status(state.text);
+                });
+                return value;
+            }).finally(() => { pending = null; });
         }
         return pending;
     }
@@ -140,11 +166,14 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
                 const frame = document.createElement('iframe'); frame.className = 'geekfox-content'; frame.title = tab.title;
                 frame.allow = 'fullscreen; autoplay; clipboard-write'; frame.allowFullscreen = true; frame.referrerPolicy = 'no-referrer';
                 tab.panel.replaceChildren(frame);
-                tab.handle = runtime.attach(frame, {url:value => track(tab,value)}, {getProfile:() => browserProfile});
+                tab.handle = runtime.attach(frame, {url:value => track(tab,value),error:error => { if(tabs.includes(tab)) failure(tab,error.message); }}, {getProfile:() => browserProfile});
                 frame.addEventListener('load', () => {
                     tab.observer?.disconnect();
                     try {
                         const doc = frame.contentDocument;
+                        if (/^Internal Service Worker Error:/.test(doc.body?.textContent?.trim() || '')) {
+                            failure(tab,'This website could not load through the available connections. Try Reconnect or another address.'); return;
+                        }
                         const update = () => {
                             if (doc.title && doc.title !== tab.title) { tab.title = doc.title; frame.title = doc.title; renderTabs(); }
                         };

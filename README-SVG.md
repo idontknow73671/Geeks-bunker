@@ -31,6 +31,29 @@ https://cdn.jsdelivr.net/gh/idontknow73671/Geeks-bunker@main/index.svg
 For an immutable release, replace main with the commit SHA. No commit, push, or
 live deployment was performed as part of this redesign.
 
+## Geekfox connections
+
+Geekfox now uses eight free WISP connections from the Achroma service pool:
+Krem, Planta, Foto, Shor, Tenspot, RYM, BSFA, and Jure. The old ping-only relay
+selection has been removed. Each candidate must fetch an HTTPS connectivity
+check through its actual transport before it is selected. All eight also fetched
+Wikipedia successfully during the October 24, 2026 local verification.
+
+Automatic is the default. If a connection fails, GET/HEAD requests try the other
+available connections; recently failed connections get a short cooldown. Ordinary
+HTTP errors do not rotate servers, and form submissions are never automatically
+sent twice. Existing WebSocket sessions and interrupted response bodies are not
+replayed; use Reconnect to reload the open Geekfox tabs if needed.
+
+The P8y connection picker lets you prefer a specific connection, with fallback
+still enabled. The preference survives reloads. Reconnect checks the connections
+again and reloads open tabs. YourGeek shares the browser connection pool; movie
+connections keep separate transport instances. These are third-party public
+services, so availability can change, and multiple domains may share infrastructure.
+
+Rebuild with `python3 build-svg.py`, push `index.svg` and `geekfox-worker.js`, and
+purge the corresponding jsDelivr URLs. Source edits alone do not update the SVG.
+
 ## Personalization
 
 A visit notice displays the supplied October 22, 2026 Terms of Service once per tab
@@ -168,7 +191,7 @@ gbGeekfoxProfile. YourGeek retains the default browser identity independently.
 Validated both outgoing headers and page-visible identity, plus reload persistence.
 
 The browser controller runs in the outer SVG document, registers the companion
-worker, and uses the reference's client-side rewriting engine and shared relay pool.
+worker, and uses the reference's client-side rewriting engine with the connection pool described above.
 A content iframe still renders each rewritten website, as in the reference; it is
 not an embedded third-party browsing homepage. Address and title changes follow
 in-page navigation. The engine loads only on the first website visit.
@@ -265,45 +288,35 @@ if the provider changes its markup, the underlying chat remains available.
 
 ## AudibleGeek and GeekMovie
 
-These native dashboard sections use the same public Ripple and Pyrite services
-identified on https://account.mtgcgs.org/os. Their interfaces are written here,
-with the dashboard's transparent glass, accent color, wallpapers and reduced-motion
-preferences. Reference application bundles and advertising scripts are not copied.
-Both sections appear in the navigation and on Home.
+The October 24, 2026 update replaces the previous media backend with the services
+used by https://cdn.jsdelivr.net/gh/achroma-ubg/svg@latest/index.svg.
+The interface remains native to Geeks Bunker with its glass styling, saved accents,
+backgrounds and reduced-motion controls. The reference's app bundles, analytics,
+account features and advertising are not copied.
 
-AudibleGeek searches Ripple tracks/albums, plays its stream URLs, opens albums,
-keeps a queue and liked tracks, and offers previous/next, shuffle, repeat, seeking,
-volume and MP3/lossless/Hi-Res choices. Likes, volume and quality stay in this
-browser. Audio formats depend on the browser and the provider. Local audio files
-also play through the same controls without uploading them anywhere; reopen local
-files after a site reload. The supplied PS4 theme pauses while media is active.
+AudibleGeek uses /api/music/ytm/home and /api/music/ytm/search, decoding the streamed
+SSE data records, and plays /api/sp/audio/{id} directly. It uses the first three
+public API hosts listed by the reference, with failover on catalog/search errors.
+The active host is stored under gbMediaAPI. It sends no account credentials or
+third-party session identifiers. Music search, discovery, liked tracks, queue,
+previous/next, shuffle, repeat, seeking and volume remain. Local audio files are
+also supported. Unsupported MP3/lossless quality choices were removed because
+the replacement endpoint supplies its own audio format. Playback controls stay
+visible while browsing long lists. The PS4 menu theme pauses during media use.
 
-GeekMovie decodes Pyrite's live SvelteKit catalog as data (no script execution),
-providing Popular, Top rated, Discover, All movies, search and a saved watchlist.
-It checks the reference's live playback-source list and opens the chosen source
-through Geekfox. Changing sources or leaving the movie section removes the old
-player. Fullscreen shows only the screen and its Exit fullscreen control.
+GeekMovie uses /api/movies/home?type=movie and /api/movies/search, with the reference's
+image endpoint and normalized title fields. Popular, Top rated, Discover, the
+combined collection, search and the saved watchlist remain. The source menu uses
+the reference's VidZee, vidsrc.su and CineSrc player URLs directly, without the
+previous source-list API or shortened links. Source choice persists. Movies use
+a separate Geekfox connection to the chosen Achroma API host's /wisp/ transport;
+regular Geekfox browsing and YourGeek use the automatic fallback pool above.
+The two required publication files remain index.svg and geekfox-worker.js.
 
-Catalog and source requests use the Geekfox transport's GET-only mediaJSON helper,
-restricted to the reference origin and its media API/data paths. Artwork comes
-from TMDB image URLs. Ripple audio uses the reference's public stream endpoint.
-No API keys, accounts or server installation are added. The site still publishes
-as index.svg plus geekfox-worker.js; push and purge BOTH files after this update.
-Geekfox reconnects its routing port before navigation and its worker waits for
-reconnection after suspension instead of returning a local missing-file page.
-
-Validation on October 23, 2026: live movie catalog (20 popular and 300 full
-collection entries), Inception search, poster normalization, watchlist persistence
-across a full reload, source switching and toolbar-free fullscreen were checked.
-Desktop and 390-pixel mobile layouts, active navigation visibility and existing
-Geekfox browsing were checked. Local music playback, advancing time, pause and
-duration reporting were checked
-with the supplied MP3. Regression checks cover catalog decoding, malformed table
-references, dashboard-request isolation and suspended-worker routing recovery.
-
-Provider limitations observed during testing: Ripple's online search returned
-"Upstream request failed" on the reference service itself. Its error is displayed
-honestly with Retry and local-file playback. Movie source availability varies:
-one reported no servers for the test title; another presented a Cloudflare check.
-A successful source check means its webpage responds, not a guarantee that the
-movie stream is available. Challenges/terms remain under the visitor's control.
+Live validation on October 24, 2026 in the built SVG: music discovery returned
+98 tracks, Daft Punk search returned playable results, and Instant Crush streamed
+with its timeline advancing beyond 20 seconds. Pause, seeking and liked-track persistence after a full SVG reload were verified.
+Inception loaded on VidZee, reported its 2:28:07 duration, rendered movie frames
+and advanced beyond two minutes; pause/resume and toolbar-free fullscreen worked.
+These checks confirm the tested streams worked at that time, not that every
+provider/title will always be available. No paid access or API keys were added.

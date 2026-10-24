@@ -1,9 +1,105 @@
 /* The engine lives in the outer document so its worker has an HTTPS page URL. */
 (() => {
     const assets = 'https://cdn.jsdelivr.net/gh/lucideproxy/svg@8b35ef07ef9788b060a78fbb504112e28e134b1d/';
-    const pool = ['https://theavancehotel.com', 'https://21baseballacademy.com', 'https://diamondstudsbaseball.com', 'https://broughton-hotel.com', 'https://themannastore.com'];
+    const connections = [
+        ['krem','Krem','https://api.spf50krem.com'],
+        ['planta','Planta','https://api.tuplantaforma.com'],
+        ['foto','Foto','https://api.fotograflar.com'],
+        ['shor','Shor','https://api.shor.ch'],
+        ['tenspot','Tenspot','https://api.tenspot.net'],
+        ['rym','RYM','https://api.rymconstrucciones.cl'],
+        ['bsfa','BSFA','https://api.bsfa.info'],
+        ['jure','Jure','https://api.jurematoz.com']
+    ].map(([id,label,origin]) => ({id,label,origin}));
     let boot = null;
-    let mediaTransport = null;
+    // The SVG origin may deny storage; browsing still works for this visit.
+    const savedConnection = () => { try { const id=localStorage.getItem('gbGeekfoxConnection'); return connections.some(item => item.id === id) ? id : 'auto'; } catch { return 'auto'; } };
+    function createConnections(Transport, onStatus, fixedOrigin = null) {
+        const candidates = fixedOrigin ? [{id:'media',label:'Media',origin:fixedOrigin}] : connections;
+        let preferred = savedConnection(), current = null, switching = null;
+        const sessions = new Map(), failed = new Map(), listeners = new Set();
+        const notify = text => { onStatus(text); for (const listener of listeners) listener({text,id:current?.id || '',label:current?.label || '',preferred}); };
+        async function session(candidate) {
+            if (!sessions.has(candidate.id)) sessions.set(candidate.id, (async () => {
+                const value = new Transport({_ind:candidate.origin.replace(/^http/,'ws') + '/wisp/'});
+                await timeout(value.init(),10000,'Connection timed out.');
+                return value;
+            })().catch(error => { sessions.delete(candidate.id); throw error; }));
+            return sessions.get(candidate.id);
+        }
+        const order = () => [...candidates].sort((a,b) => (b.id === preferred) - (a.id === preferred));
+        async function select(excluded = new Set()) {
+            if (switching) { await switching; if (current && !excluded.has(current.id)) return current; }
+            switching = (async () => {
+                const ordered = order().filter(item => !excluded.has(item.id));
+                // Give recently failed connections a short cooldown, but never permanently disable one.
+                const available = ordered.filter(item => Date.now() - (failed.get(item.id) || 0) > 30000);
+                for (const candidate of available.length ? available : ordered) {
+                    notify('Checking ' + candidate.label + ' connection…');
+                    try {
+                        const transport = await session(candidate);
+                        const response = await transport.request(new URL('https://www.gstatic.com/generate_204'),'GET',null,[],AbortSignal.timeout(10000));
+                        await response.body?.cancel();
+                        if (response.status < 200 || response.status >= 400) throw new Error('Connection check failed.');
+                        current = candidate;
+                        adapter.activeTransport = transport;
+                        notify('Connected · ' + candidate.label + (preferred === 'auto' ? ' · Automatic fallback' : ' · Fallback enabled'));
+                        return candidate;
+                    } catch { failed.set(candidate.id,Date.now()); sessions.delete(candidate.id); }
+                }
+                current = null;
+                notify('No p8y connection is responding. Try Reconnect in a moment.');
+                throw new Error('No p8y connection is responding. Try Reconnect in a moment.');
+            })();
+            try { return await switching; } finally { switching = null; }
+        }
+        const adapter = {
+            ready:false,
+            async init() { await select(); adapter.ready = true; },
+            async request(url,method,body,headers,signal) {
+                const safe = ['GET','HEAD'].includes(method.toUpperCase());
+                const attempted = new Set();
+                while (attempted.size < candidates.length) {
+                    if (signal?.aborted) throw signal.reason;
+                    const selected = current && !attempted.has(current.id) ? current : await select(attempted);
+                    attempted.add(selected.id);
+                    try {
+                        const transport = await session(selected);
+                        const deadline = safe ? AbortSignal.timeout(15000) : null;
+                        const requestSignal = signal && deadline ? AbortSignal.any([signal,deadline]) : signal || deadline;
+                        // HTTP errors belong to the destination. Only transport failures trigger a retry.
+                        return await transport.request(url,method,body,headers,requestSignal);
+                    } catch (error) {
+                        if (signal?.aborted) throw error;
+                        failed.set(selected.id,Date.now()); sessions.delete(selected.id);
+                        if (current?.id === selected.id) current = null;
+                        if (!safe || fixedOrigin) throw error; // Never send a form submission twice.
+                        notify(selected.label + ' disconnected. Trying another connection…');
+                    }
+                }
+                notify('All p8y connections failed for this website. Try another address or Reconnect.');
+                throw new Error('All p8y connections failed for this website. Try another address or Reconnect.');
+            },
+            connect(...args) {
+                if (!current) throw new Error('Reconnect before opening a live connection.');
+                // init always resolves the cached session before a page can request a socket.
+                return adapter.activeTransport.connect(...args);
+            },
+            activeTransport:null
+        };
+        return {
+            adapter,
+            get origin() { return current?.origin || ''; },
+            subscribe(listener) { listeners.add(listener); listener({text:current ? 'Connected · ' + current.label : 'Choose a connection or use Automatic.',id:current?.id || '',label:current?.label || '',preferred}); return () => listeners.delete(listener); },
+            async change(id = preferred) {
+                preferred = connections.some(item => item.id === id) ? id : 'auto';
+                if (!fixedOrigin) try { localStorage.setItem('gbGeekfoxConnection',preferred); } catch {}
+                if (switching) await switching.catch(() => {});
+                current = null; failed.clear(); sessions.clear();
+                await select(); adapter.ready = true;
+            }
+        };
+    }
     const identities = {
         gecko: {userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0',platform:'Win32',vendor:''},
         chromium: {userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',platform:'Win32',vendor:'Google Inc.'}
@@ -29,68 +125,22 @@
             return new TextDecoder().decode(Uint8Array.from(raw, n => n.charCodeAt(0)));
         }
     };
+    const scripts = new Map();
     function loadScript(path) {
-        return new Promise((resolve, reject) => {
+        if (scripts.has(path)) return scripts.get(path);
+        const loading = new Promise((resolve, reject) => {
             const script = document.createElementNS('http://www.w3.org/1999/xhtml', 'script');
             script.src = assets + path;
             script.onload = resolve;
             script.onerror = () => { script.remove(); reject(new Error('Could not load the Geekfox engine.')); };
             (document.head || document.documentElement).appendChild(script);
-        });
+        }).catch(error => { scripts.delete(path); throw error; });
+        scripts.set(path,loading);
+        return loading;
     }
-    // The reference's relay pool uses a public binary handshake and AES-GCM records.
-    function installRelayProtocol() {
-        if (window.WebSocket.geekfoxRelay) return;
-        const NativeSocket = window.WebSocket;
-        const handshake = Uint8Array.from([110,209,210,184,240,105,71,124,161,147,176,203,72,148,189,109,178,243,213,20,57,125,96,243,158,150,135,196,241,183,216,244]);
-        const key = crypto.subtle.digest('SHA-256', handshake).then(hash => crypto.subtle.importKey('raw', hash, 'AES-GCM', false, ['encrypt', 'decrypt']));
-        const asBytes = async data => typeof data === 'string' ? new TextEncoder().encode(data) : data instanceof Blob ? new Uint8Array(await data.arrayBuffer()) : new Uint8Array(data);
-        class RelaySocket extends NativeSocket {
-            constructor(url, protocols) {
-                super(url, protocols);
-                if (!pool.some(origin => {
-                    const candidate = new URL(url);
-                    return candidate.host === new URL(origin).host && ['/piers/', '/fairs/'].includes(candidate.pathname);
-                })) return;
-                let outgoing = Promise.resolve(), incoming = Promise.resolve();
-                let emitting = false;
-                this.addEventListener('open', () => NativeSocket.prototype.send.call(this, handshake));
-                this.addEventListener('message', event => {
-                    if (emitting || typeof event.data === 'string') return;
-                    event.stopImmediatePropagation();
-                    incoming = incoming.then(async () => {
-                        const bytes = await asBytes(event.data);
-                        const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:bytes.slice(0,12)}, await key, bytes.slice(12));
-                        emitting = true;
-                        try { this.dispatchEvent(new MessageEvent('message', {data:this.binaryType === 'blob' ? new Blob([plain]) : plain})); }
-                        finally { emitting = false; }
-                    }).catch(() => this.close());
-                }, true);
-                this.send = data => {
-                    outgoing = outgoing.then(async () => {
-                        const iv = crypto.getRandomValues(new Uint8Array(12));
-                        const encrypted = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv}, await key, await asBytes(data)));
-                        const packet = new Uint8Array(iv.length + encrypted.length);
-                        packet.set(iv); packet.set(encrypted, iv.length);
-                        NativeSocket.prototype.send.call(this, packet);
-                    }).catch(() => this.close());
-                };
-            }
-        }
-        RelaySocket.geekfoxRelay = true;
-        window.WebSocket = RelaySocket;
-    }
-    async function chooseRelay() {
-        return Promise.any(pool.map(async origin => {
-            const response = await fetch(origin + '/api/ping', {mode:'cors', cache:'no-store', signal:AbortSignal.timeout(6000)});
-            if (!response.ok || !(await response.json()).ok) throw new Error('Relay unavailable');
-            return origin;
-        })).catch(() => { throw new Error('The shared free relay pool is unavailable. Try again later.'); });
-    }
-    async function initialize(onStatus) {
+    async function initialize(onStatus, mediaOrigin = null) {
         if (!isSecureContext || !navigator.serviceWorker) throw new Error('Geekfox needs HTTPS or localhost.');
         onStatus('Starting the browsing engine…');
-        installRelayProtocol();
         const base = new URL('.', location.href);
         const registration = await navigator.serviceWorker.register(new URL('geekfox-worker.js', base), {scope:base.pathname});
         const worker = await timeout(new Promise((resolve, reject) => {
@@ -102,11 +152,13 @@
             };
             candidate.addEventListener('statechange', check); check();
         }), 15000, 'The Geekfox worker did not activate. Publish geekfox-worker.js beside index.svg.');
-        const origin = await chooseRelay();
         await loadScript('2izar/ypk98g.js');
         await loadScript('dfkw6/jusz03.js');
-        const transportModule = await import(assets + 'assets/' + 'p' + 'roxy-runtime-hRo6K69j-04a19445.js');
-        const transport = new transportModule.L({_ind:origin.replace(/^http/, 'ws') + '/piers/'});
+        // Separate module instances keep media and browser connection settings independent.
+        const transportModule = await import(assets + 'assets/' + 'p' + 'roxy-runtime-hRo6K69j-04a19445.js?geekfox=' + encodeURIComponent(mediaOrigin || 'browsing'));
+        const network = createConnections(transportModule.L,onStatus,mediaOrigin);
+        const transport = network.adapter;
+        await transport.init();
         const controller = new window._zm9ikyq.Controller({
             serviceworker:worker,
             transport,
@@ -132,20 +184,7 @@
             }),10000,'The Geekfox worker could not reconnect. Reload the dashboard.').finally(()=>{reconnecting=null;});
             return reconnecting;
         }
-        onStatus('Connected to the shared free relay pool.');
         return {
-            async mediaJSON(address) {
-                const url = new URL(address);
-                if (url.origin !== 'https://account.mtgcgs.org' ||
-                    !/^\/(?:ripple\/api\/|pyrite\/(?:api\/|__data\.json$))/.test(url.pathname)) {
-                    throw new Error('Unsupported media service.');
-                }
-                if (!transport.session) await (mediaTransport ||= timeout(transport.init(),25000,'The media connection timed out.').catch(error => {mediaTransport=null;throw error;}));
-                const response = await transport.request(url,'GET',null,[['Accept','application/json']],AbortSignal.timeout(25000));
-                const data = await new Response(response.body).json();
-                if (response.status < 200 || response.status >= 300) throw new Error(data.error || 'The media service is unavailable.');
-                return data;
-            },
             attach(element, callbacks, options = {}) {
                 const frame = controller.createFrame(element);
                 const plugin = new window._hp75rnc.Plugin('geekfox-' + frame.id);
@@ -160,26 +199,38 @@
                         }
                     }
                     if (!context.isTopLevel) return;
-                    callbacks.url(context.client.url.href);
-                    plugin.tap(context.client.hooks.lifecycle.navigate, (_, details) => callbacks.url(new URL(details.url, context.client.url.href).href));
+                    lastURL=context.client.url.href;
+                    callbacks.url(lastURL);
+                    plugin.tap(context.client.hooks.lifecycle.navigate, (_, details) => { lastURL=new URL(details.url, context.client.url.href).href; callbacks.url(lastURL); });
                 });
                 // Hooks are attached above; keep the plugin alive until this tab closes.
-                let disposed=false, navigation=0;
+                let disposed=false, navigation=0, lastURL='';
                 return {
                     go(url) {
+                        lastURL=url;
                         const request=++navigation;
                         reconnect().then(()=>{if(!disposed && request===navigation)frame.go(url);}).catch(error=>{if(!disposed)callbacks.error?.(error);});
                     },
                     back() { frame.back(); },
                     forward() { frame.forward(); },
-                    reload() { frame.reload(); },
+                    reload() { if (lastURL) this.go(lastURL); },
                     dispose() { disposed=true; const index = controller.frames.indexOf(frame); if (index >= 0) controller.frames.splice(index, 1); }
                 };
             },
-            origin
+            get origin() { return network.origin; },
+            subscribe:network.subscribe,
+            changeConnection:network.change
         };
     }
+    const mediaBoots=new Map();
     window.GeekfoxEngine = {
+        get preference() { return savedConnection(); },
+        connections:connections.map(({id,label}) => ({id,label})),
+        startMedia(origin,onStatus=()=>{}) {
+            if (!['https://api.spf50krem.com','https://api.tuplantaforma.com','https://api.fotograflar.com'].includes(origin)) return Promise.reject(new Error('Unsupported media connection.'));
+            if(!mediaBoots.has(origin))mediaBoots.set(origin,initialize(onStatus,origin).catch(error=>{mediaBoots.delete(origin);throw error;}));
+            return mediaBoots.get(origin);
+        },
         start(onStatus = () => {}) {
             if (!boot) boot = initialize(onStatus).catch(error => { boot = null; throw error; });
             return boot;
