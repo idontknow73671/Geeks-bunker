@@ -1,6 +1,8 @@
+import { initializeGeekfoxAddons } from "./geekfox-addons.js";
 export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
     const $ = id => document.getElementById(id);
     const tabs = [];
+    const addons = initializeGeekfoxAddons({read,write,fetchThroughGeekfox:async(url,options)=>(await getEngine()).fetch(url,options),frames:()=>tabs.filter(tab=>tab.frame && tab.handle),reload:()=>{for(const tab of tabs)if(tab.handle)tab.handle.reload();}});
     let selected = null, nextId = 1, engine = null, pending = null;
     const engineHost = window.parent.GeekfoxEngine || window.GeekfoxEngine;
     for (const connection of engineHost?.connections || []) {
@@ -96,6 +98,7 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
     function closeTab(tab) {
         const index = tabs.indexOf(tab), wasSelected = selected === tab.id;
         tab.busy++; tab.handle?.dispose(); tab.observer?.disconnect(); tab.panel.remove(); tabs.splice(index, 1);
+        addons.refresh();
         if (!tabs.length) return newTab();
         if (wasSelected) { select(tabs[Math.min(index, tabs.length - 1)]); $('geekfox-tab-' + selected).focus(); }
         else renderTabs();
@@ -140,6 +143,7 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
         try { url = new URL(url).href; } catch { return; }
         if (!/^https?:/.test(url)) return;
         tab.url = url;
+        queueMicrotask(()=>addons.refresh());
         if (tab.history[tab.index] !== url) { tab.history.splice(tab.index + 1); tab.history.push(url); tab.index = tab.history.length - 1; }
         tab.title = new URL(url).hostname;
         tab.error = '';
@@ -147,7 +151,7 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
     }
     function failure(tab,message) {
         tab.error = message; tab.panel.replaceChildren();
-        tab.handle?.dispose(); tab.handle = null; tab.observer?.disconnect();
+        tab.handle?.dispose(); tab.handle = null; tab.frame = null; addons.refresh(); tab.observer?.disconnect();
         const box = document.createElement('div'); box.className = 'geekfox-error';
         const heading = document.createElement('h2'); heading.textContent = 'Couldn’t open this page';
         const note = document.createElement('p'); note.textContent = message;
@@ -161,12 +165,14 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
         const request = ++tab.busy; track(tab,url); controls(); status('Connecting…');
         try {
             const runtime = await getEngine();
+            await addons.prepare();
             if (!tabs.includes(tab) || request !== tab.busy) return;
             if (!tab.handle) {
                 const frame = document.createElement('iframe'); frame.className = 'geekfox-content'; frame.title = tab.title;
                 frame.allow = 'fullscreen; autoplay; clipboard-write'; frame.allowFullscreen = true; frame.referrerPolicy = 'no-referrer';
+                tab.frame = frame;
                 tab.panel.replaceChildren(frame);
-                tab.handle = runtime.attach(frame, {url:value => track(tab,value),error:error => { if(tabs.includes(tab)) failure(tab,error.message); }}, {getProfile:() => browserProfile});
+                tab.handle = runtime.attach(frame, {url:value => track(tab,value),error:error => { if(tabs.includes(tab)) failure(tab,error.message); }}, {getProfile:() => browserProfile,filterRequest:addons.filterRequest});
                 frame.addEventListener('load', () => {
                     tab.observer?.disconnect();
                     try {
@@ -178,6 +184,7 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
                             if (doc.title && doc.title !== tab.title) { tab.title = doc.title; frame.title = doc.title; renderTabs(); }
                         };
                         update();
+                        addons.apply(frame);
                         if (doc.head) { tab.observer = new MutationObserver(update); tab.observer.observe(doc.head,{subtree:true,childList:true,characterData:true}); }
                         if (selected === tab.id) status('Geekfox · ' + new URL(tab.url).hostname);
                     } catch {}
@@ -192,7 +199,7 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
     $('geekfox-address').addEventListener('focus', event => event.target.select());
     $('geekfox-add-tab').addEventListener('click', newTab);
     $('geekfox-home').addEventListener('click', () => {
-        const tab = active(); tab.busy++; tab.handle?.dispose(); tab.observer?.disconnect(); tab.handle = null;
+        const tab = active(); tab.busy++; tab.handle?.dispose(); tab.observer?.disconnect(); tab.handle = null; tab.frame = null; addons.refresh();
         tab.url = ''; tab.title = 'New tab'; welcome(tab); select(tab);
     });
     for (const [id,step] of [['geekfox-back',-1],['geekfox-forward',1]]) $(id).addEventListener('click', () => {
@@ -214,7 +221,7 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
     });
     $('geekfox-clear').addEventListener('click', () => {
         for (const tab of tabs) { tab.busy++; tab.handle?.dispose(); tab.observer?.disconnect(); tab.panel.remove(); }
-        tabs.length = 0; newTab(); status('Tabs closed. Saved bookmarks are kept.');
+        tabs.length = 0; addons.refresh(); newTab(); status('Tabs closed. Saved bookmarks are kept.');
     });
     function exitFullscreen() {
         $('geekfox-browser').classList.remove('geekfox-expanded');

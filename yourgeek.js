@@ -1,10 +1,60 @@
+function yourGeekChatLink(value) {
+    try {
+        const url=new URL(value), id=url.searchParams.get('chatID');
+        if(!['duck.ai','duckduckgo.com'].includes(url.hostname)||!/^https:$/.test(url.protocol)||!id||!/^[a-zA-Z0-9_-]{8,100}$/.test(id))return null;
+        return {id,url:'https://duck.ai/?chatID='+encodeURIComponent(id)};
+    } catch { return null; }
+}
 // Duck.ai runs through the existing Geekfox engine, with its own model picker.
 // This keeps provider model availability, terms, and free usage limits intact.
 export function initializeYourGeek({reveal}) {
     const $ = id => document.getElementById(id);
     const home = 'https://duck.ai/';
     let frame = null, handle = null, starting = null, timer = null, generation = 0;
-    let themeObserver = null;
+    let themeObserver = null, captureTimer=null;
+    let history=[];
+    try { const saved=JSON.parse(localStorage.getItem('gbYourGeekHistoryV1')||'[]');if(Array.isArray(saved))history=saved.filter(item=>item&&yourGeekChatLink(item.url)?.id===item.id&&typeof item.title==='string'&&Number.isFinite(item.updatedAt)&&item.updatedAt>=0&&item.updatedAt<=Date.now()+86400000).slice(0,100); } catch {}
+    const historyDialog=$('ai-history-dialog');
+    function saveHistory() {
+        try { localStorage.setItem('gbYourGeekHistoryV1',JSON.stringify(history));$('ai-history-note').textContent='Saved on this browser. Conversations reopen in Duck.ai; clearing site data removes local chats.'; }
+        catch { $('ai-history-note').textContent='History could not be saved. Browser storage may be full or disabled.'; }
+    }
+    function renderHistory() {
+        const query=$('ai-history-search').value.trim().toLowerCase(), list=$('ai-history-list');list.replaceChildren();
+        for(const item of history.filter(item=>item.title.toLowerCase().includes(query))) {
+            const row=document.createElement('div');row.className='yourgeek-history-row';
+            const open=document.createElement('button');open.type='button';open.className='yourgeek-history-open';
+            const title=document.createElement('strong');title.textContent=item.title;
+            const time=document.createElement('time');time.dateTime=new Date(item.updatedAt).toISOString();time.textContent=new Date(item.updatedAt).toLocaleString();
+            open.append(title,time);open.addEventListener('click',()=>{historyDialog.close();connect(true,item.url);});
+            const remove=document.createElement('button');remove.type='button';remove.className='text-button';remove.textContent='Remove shortcut';remove.setAttribute('aria-label','Remove shortcut for '+item.title);
+            remove.addEventListener('click',()=>{history=history.filter(entry=>entry.id!==item.id);saveHistory();renderHistory();});
+            row.append(open,remove);list.append(row);
+        }
+        if(!list.children.length){const empty=document.createElement('p');empty.className='muted';empty.textContent=query?'No matching chats.':'Your conversations will appear here as you use YourGeek. Existing chats are also available in Duck.ai history.';list.append(empty);}
+    }
+    function captureChat() {
+        clearTimeout(captureTimer);
+        try {
+            const doc=frame?.contentDocument, link=yourGeekChatLink(handle?.currentURL?.());
+            if(!doc||!link)return;
+            const title=doc.title.trim();if(!title||/^Duck\.ai(?: by|$)|^All chats are private/i.test(title))return;
+            const old=history.find(item=>item.id===link.id);
+            if(old?.title===title&&history[0]?.id===link.id)return;
+            history=[{...link,title:title.slice(0,180),updatedAt:Date.now()},...history.filter(item=>item.id!==link.id)].slice(0,100);
+            saveHistory();if(historyDialog.open)renderHistory();
+        } catch {}
+    }
+    $('ai-history').addEventListener('click',()=>{captureChat();renderHistory();historyDialog.showModal();$('ai-history-search').focus();});
+    $('ai-history-close').addEventListener('click',()=>historyDialog.close());
+    $('ai-history-search').addEventListener('input',renderHistory);
+    $('ai-provider-history').addEventListener('click',async()=>{
+        historyDialog.close();await connect();
+        const doc=frame?.contentDocument;
+        const toggle=doc&&[...doc.querySelectorAll('button')].find(button=>/^Show sidebar/i.test(button.getAttribute('aria-label')||''));
+        if(toggle)toggle.click();
+        else status('Open the menu inside Duck.ai to see its saved chats.');
+    });
     const status = message => { $('ai-status').textContent = message; };
     function failure(message) {
         clearTimeout(timer);
@@ -38,6 +88,7 @@ export function initializeYourGeek({reveal}) {
         let scheduled = false;
         const decorate = () => {
             scheduled = false;
+            clearTimeout(captureTimer);captureTimer=setTimeout(captureChat,600);
             const pageHeading = doc.querySelector('main h1') || doc.querySelector('h1');
             for (let node = pageHeading?.parentElement; node && node !== doc.body; node = node.parentElement) node.dataset.yourgeekSurface = '';
             const heading = [...doc.querySelectorAll('h1')].find(node => /^(?:Duck\.ai(?:, by DuckDuckGo)?|All chats are private)$/.test(node.textContent.trim()));
@@ -57,7 +108,7 @@ export function initializeYourGeek({reveal}) {
         themeObserver = new MutationObserver(() => {
             if (scheduled) return; scheduled = true; requestAnimationFrame(decorate);
         });
-        themeObserver.observe(doc.body, {subtree:true,childList:true,characterData:true}); decorate();
+        themeObserver.observe(doc.body, {subtree:true,childList:true,characterData:true});if(doc.head)themeObserver.observe(doc.head,{subtree:true,childList:true,characterData:true}); decorate();
     }
     function loaded() {
         if (!frame || !handle) return;
@@ -66,7 +117,7 @@ export function initializeYourGeek({reveal}) {
             // Ignore an initial about:blank load before the rewritten page arrives.
             if (!doc?.body?.children.length) return;
             clearTimeout(timer);
-            themeProvider(doc);
+            themeProvider(doc);captureChat();
             const text = doc.body.innerText || '';
             if (/sorry, you have been blocked|access denied/i.test(text)) {
                 failure('Duck.ai is blocking this relay. You can open Duck.ai directly instead.'); return;
@@ -79,9 +130,10 @@ export function initializeYourGeek({reveal}) {
             status('Powered by Duck.ai · Connected');
         }
     }
-    async function connect(restart = false) {
-        if (starting) return starting;
+    async function connect(restart = false, destination = home) {
+        if (starting) { await starting; return restart ? connect(true,destination) : undefined; }
         if (handle && !restart) return;
+        captureChat();
         const request = ++generation;
         $('ai-loading').classList.remove('hidden'); $('ai-retry').classList.add('hidden');
         $('ai-loading-title').textContent = 'Opening YourGeek';
@@ -101,17 +153,18 @@ export function initializeYourGeek({reveal}) {
                     frame.addEventListener('load', loaded);
                     $('ai-frame-host').replaceChildren(frame);
                     handle = runtime.attach(frame, {url:value => {
-                        try { status('Powered by Duck.ai · ' + new URL(value).hostname); } catch {}
-                    }});
+                        try { status('Powered by Duck.ai · ' + new URL(value).hostname); clearTimeout(captureTimer);captureTimer=setTimeout(captureChat,600); } catch {}
+                    },error:error=>failure(error.message)});
                 }
                 clearTimeout(timer);
                 timer = setTimeout(() => failure('The service is taking too long to load. Try again, or open Duck.ai directly.'), 45000);
-                handle.go(home);
+                handle.go(destination);
             } catch (error) { failure(error.message || 'The shared relay could not connect.'); }
             finally { starting = null; }
         })();
         return starting;
     }
+    window.addEventListener('pagehide',captureChat);
     $('ai-new-chat').addEventListener('click', () => connect(true));
     $('ai-retry').addEventListener('click', () => connect(true));
     $('ai-reload').addEventListener('click', () => {

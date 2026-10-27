@@ -364,3 +364,152 @@ these links do not make the relay traffic travel through jsDelivr itself. The
 PeteZah static deployment was also inspected, but its advertised fallback relay
 failed a real fetch and was not added. Mirrors of Lucide were not counted as
 independent providers. No guarantee is made about reachability on a school network.
+
+## YourGeek chat history
+
+YourGeek now has a Chat history button with local title search and conversation
+shortcuts. Opening or using a Duck.ai conversation records its canonical chatID
+and title under gbYourGeekHistoryV1. Reopening a shortcut navigates to Duck.ai's
+saved conversation, including its existing messages and reply composer. Existing
+Duck.ai chats can be reached through Open Duck.ai history and are added to the
+YourGeek list when opened. Chat transcripts stay in Duck.ai's browser storage;
+YourGeek does not upload a second copy. Removing a shortcut does not delete the
+provider conversation. Clearing browser/site data can remove both kinds of local
+history. The list keeps at most 100 conversations and reports storage failures.
+
+## Geekfox add-ons
+
+Open Geekfox → Add-ons to enable Larger text, Reduce motion, or Hide images and
+video. Changes apply immediately to open Geekfox pages and on subsequent page
+loads. Preferences and imported add-ons stay in local browser storage. The VPN
+setup cards have been removed from Settings.
+
+Import a Geekfox style add-on as JSON with `format: "geekfox-style-v1"`, a `name`,
+optional `description`, `hosts` (exact hostnames, `*.example.com`, or `*`), and
+`css`. Download example in the manager supplies an editable working file. Imports
+start disabled. Enable one to apply it; disable or remove it to undo its styles.
+Limit: 20 imported add-ons, 64 KiB per file, 40,000 CSS characters. External CSS
+imports and URL resources are rejected. Scripts are handled separately by the Firefox package importer below. Only the main
+Geekfox page is styled, not nested site frames or other dashboard sections.
+
+## G8me launch compatibility
+
+The normal launch and existing per-title saves remain the default. Large GN Math
+document downloads now get up to 60 seconds instead of 20. The player ignores its
+initial blank iframe load, reports document/connection errors, and offers retry
+when loading exceeds a minute. Pointer interactions focus the active g8me frame.
+
+Launch through p8y offers an alternate route for blocked assets or titles that
+need a real page URL rather than srcdoc. A dedicated g8me controller/transport is
+kept separate from AI, browser, and media connections. Its HTTP session is refreshed
+between alternate launches. The selected GN Math document is unwrapped and given
+its correct asset base before rewriting; its CDN text/plain/download headers are
+normalized to HTML. Other fetched resources are not forced to HTML. Direct launch
+can be selected again. Reload retries the current launch mode.
+
+P8y mode uses separate, provider-managed browser saves; direct-mode save adapters
+and existing direct saves are not copied to it. Use direct launch to return to an
+existing direct save. Lumin retains its SDK/provider-managed save behavior.
+
+Verified: saved YourGeek chat survives SVG reload, reopens with messages and reply
+composer, search has an empty state; Quake III renders its menus with keyboard
+navigation in direct and p8y launch; 2048 responds to keyboard input through p8y and switching back to direct restores
+its earlier score/board. Lumin loads its catalog.
+The entire third-party catalog and a physical Chromebook have not been certified.
+
+
+## Firefox package compatibility
+
+Geekfox → Add-ons → Import Firefox package accepts actual `.xpi` and ZIP
+WebExtension archives. Importing only inspects the package. Review its name,
+version and matching sites, check the trust/access checkbox, then choose Install
+and enable. Packages and enabled state are stored locally in IndexedDB, not
+embedded in the SVG or uploaded to a server. Limit: ten installed packages,
+10 MiB compressed per package, 30 MiB expanded, 8 MiB per file, 1,500 entries.
+The reader validates ZIP structure, decompressed lengths and CRC32; it rejects
+encryption, ZIP64, directory traversal, duplicate files and missing scripts.
+It does not verify Mozilla package signatures.
+
+Supported compatibility surface:
+
+- Manifest V2 and V3 declarative `content_scripts`, top Geekfox document only,
+  at `document_idle`. HTTP/HTTPS match patterns and `exclude_matches` use the
+  original website URL. Scripts run once per document, in declared order with
+  a shared per-extension lexical scope. SPA URL changes do not rerun scripts.
+- Packaged JavaScript and CSS, plus packaged images/fonts through
+  `runtime.getURL()` or relative CSS URLs. Resources use local data URLs.
+  CSS imports/external resources are not supported.
+- `browser` and `chrome` aliases; `runtime.id`, `runtime.getManifest`,
+  `runtime.getURL`, `runtime.getBrowserInfo`, `extension.getURL`;
+  `i18n.getMessage`, `getUILanguage`, `getAcceptLanguages` (default locale).
+- With declared `storage` permission: per-extension `storage.local.get`, `set`,
+  `remove`, `clear`, `getKeys`, `getBytesInUse` and change listeners. Promise and
+  callback forms are supported. Storage is capped at 2 MiB per extension.
+- Enable, disable and remove, with reloads of Geekfox tabs to reset running
+  scripts. Removing a package retains its local settings until site data is
+  cleared. Runtime errors appear beside the package when identifiable.
+
+This is a compatibility layer for trusted page extensions, not Firefox itself.
+Background scripts/workers, toolbar popups, options pages, subframe injection,
+`document_start`/`document_end`, request interception/blocking, native messaging,
+Firefox preferences and VPN APIs are unavailable. Required unsupported manifest
+features/permissions are rejected with their names. Optional permissions are not
+granted. Scripts can also depend on undeclared APIs; these may fail at runtime.
+Content scripts execute in the page context, without Firefox's isolated worlds,
+and may access other Geeks Bunker site data. Only install packages you trust.
+Firefox/Chrome stores are not installed into the host browser by this feature.
+
+Verification: an XPI built from Mozilla's unmodified Borderify example ran on
+mozilla.org and drew its red border. A separate local fixture verified ordered
+multi-file JavaScript, CSS, packaged images, runtime metadata, extension storage
+and a visit counter persisting after a full SVG reload. Disabling the fixture
+reloaded the page without its injected content. A background-dependent fixture
+was rejected before installation. Run package parser/manifest tests with
+`node --test tests/geekfox-webextensions.test.mjs`.
+
+Mozilla sample: https://github.com/mdn/webextensions-examples/tree/main/borderify
+API reference: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions
+
+
+## Native blocker and YouTube dislike counts
+
+Geekfox → Add-ons → Built-in browsing tools has two independent, optional tools:
+
+- **Geekfox ad & tracker blocker** uses the bundled Ghostery filtering engine
+  2.20.1 with EasyList and EasyPrivacy. Matching network requests receive a local
+  empty response before reaching a relay. Basic cosmetic rules hide matching
+  page elements. Allow the current site to pause its filtering; Resume blocking
+  restores it. Both the switches and site allowlist survive reloads.
+- **YouTube dislike counts** reads the Return YouTube Dislike `/votes` endpoint
+  through Geekfox's existing relay transport. It shows estimated dislikes beside
+  the video's like/dislike group, or a small page badge when the native group is
+  unavailable. Counts cache for ten minutes (up to 100 videos), update on YouTube
+  page navigation, and have timeout/error/retry handling. It does not register an
+  RYD account, submit votes, or change YouTube's voting behavior.
+
+These features are native integrations. They do not make the full uBlock Origin
+or Return YouTube Dislike Firefox packages compatible with the XPI importer.
+uBlock needs a background page and privileged blocking APIs; the current RYD
+package also needs a background script. Imported packages retain the documented
+compatibility checks.
+
+Filtering is limited to Geekfox pages and subrequests; it does not cover YourGeek,
+media, g8me players, other browser tabs, or the whole device. It does not execute
+uBlock scriptlets, perform dynamic filtering, or reliably remove YouTube video
+ads. One YouTube video ad remained visible during testing. Filter lists are a
+bundled snapshot, not an automatic update subscription. The snapshot's provenance
+and licenses are in `vendor/FILTER-SOURCES.md`, `BLOCKER-NOTICES.txt`, and the
+accompanying source/license files. Both the filtering engine and compressed lists
+are embedded in the SVG; only the RYD data service needs an additional online
+request, routed through Geekfox.
+
+Verification: a live YouTube page reported 25 matched requests blocked and
+521,713 estimated dislikes from the live RYD API. Counts can change over time.
+An integration probe received HTTP 204 for a blocked analytics script; allowing
+the current site made the same request return HTTP 200. Unit tests cover real
+filter matches, exceptions, cosmetic rules, site allowlisting, video URL checks,
+relay-only RYD fetches, rate limits and invalid API data. Run:
+`node --test tests/geekfox-features.test.mjs tests/geekfox-webextensions.test.mjs`.
+For the manual integration fixture, copy `tests/geekfox-features-harness.html`
+to the root as `geekfox-features-check.html` while testing, serve the checkout,
+and remove that temporary copy when finished (the worker must be beside it).

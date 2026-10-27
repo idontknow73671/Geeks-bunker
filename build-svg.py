@@ -26,6 +26,7 @@ def build():
     if not (ROOT / 'geekfox-worker.js').is_file():
         raise SystemExit('Keep geekfox-worker.js beside index.svg for Geekfox browsing.')
     html = (ROOT / 'index.html').read_text(encoding='utf-8')
+    html = html.replace('vendor/BLOCKER-LICENSES.txt', 'data:text/plain;base64,' + base64.b64encode((ROOT / 'vendor/BLOCKER-LICENSES.txt').read_bytes()).decode('ascii'))
     css = (ROOT / 'style.css').read_text(encoding='utf-8')
     script = (ROOT / 'script.js').read_text(encoding='utf-8').replace('import { loadLuminCover } from "./lumin.js";', '')
     appearance = (ROOT / 'appearance.js').read_text(encoding='utf-8').replace('export async function ', 'async function ')
@@ -34,7 +35,16 @@ def build():
     script = script.replace('import { initializeMedia } from "./media.js";', media)
     yourgeek = (ROOT / 'yourgeek.js').read_text(encoding='utf-8').replace('export function initializeYourGeek', 'function initializeYourGeek', 1)
     script = script.replace('import { initializeYourGeek } from "./yourgeek.js";', yourgeek)
+    webextensions = (ROOT / 'geekfox-webextensions.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('export async function ', 'async function ')
+    addons = (ROOT / 'geekfox-addons.js').read_text(encoding='utf-8').replace('export function ', 'function ')
+    features = (ROOT / 'geekfox-features.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('export async function ', 'async function ')
+    for asset in ['vendor/geekfox-blocker.js.gz','vendor/geekfox-filters.txt.gz']:
+        mime = 'text/javascript' if asset.endswith('.js') else 'application/gzip'
+        features = features.replace(asset, 'data:' + mime + ';base64,' + base64.b64encode((ROOT / asset).read_bytes()).decode('ascii'))
+    addons = addons.replace('import { initializeGeekfoxFeatures } from "./geekfox-features.js";', features)
+    addons = addons.replace('import { initializeGeekfoxWebExtensions } from "./geekfox-webextensions.js";', webextensions)
     geekfox = (ROOT / 'geekfox.js').read_text(encoding='utf-8').replace('export function initializeGeekfox', 'function initializeGeekfox', 1)
+    geekfox = geekfox.replace('import { initializeGeekfoxAddons } from "./geekfox-addons.js";', addons)
     script = script.replace('import { initializeGeekfox } from "./geekfox.js";', geekfox)
     html = html.replace('<script src="geekfox-engine.js"></script>', '')
     engine = (ROOT / 'geekfox-engine.js').read_text(encoding='utf-8')

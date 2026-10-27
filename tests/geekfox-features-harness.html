@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Geekfox feature verification</title><style>body{font:16px system-ui;background:#171b22;color:white;padding:20px}button{padding:12px;margin:5px}iframe{width:100%;height:420px;background:white}label{display:block;margin:12px}p{line-height:1.5}</style>
+<h1>Geekfox feature verification</h1>
+<label>Blocker<input id="geekfox-blocker-toggle" type="checkbox"></label><p id="geekfox-blocker-status"></p><button id="geekfox-blocker-site">Allow website</button>
+<label>Dislike counts<input id="geekfox-dislikes-toggle" type="checkbox"></label><p id="geekfox-dislikes-status"></p><button id="geekfox-dislikes-retry">Retry counts</button>
+<button id="connect">Open test page</button><button id="probe" disabled>Probe blocked request</button><button id="counts" disabled>Check live dislike API</button><p id="result" role="status">Ready</p><p id="decision"></p><section id="panel"><iframe id="target" title="Test page"></iframe></section>
+<script src="../geekfox-engine.js"></script><script type="module">
+import {initializeGeekfoxFeatures,fetchGeekfoxDislikes} from '../geekfox-features.js';
+const $=id=>document.getElementById(id),frame=$('target');let runtime,handle,url='https://example.org/';
+const tools=initializeGeekfoxFeatures({read:()=>({blocker:true,dislikes:false}),write:()=>{},frames:()=>handle?[{frame,handle,url,panel:$('panel')}]:[],reload:()=>handle?.reload(),fetchThroughGeekfox:(...args)=>runtime.fetch(...args)});
+$('connect').onclick=async()=>{try{await tools.prepare();runtime=await GeekfoxEngine.start(text=>$('result').textContent=text);handle=runtime.attach(frame,{url:value=>{url=value;},error:error=>$('result').textContent=error.message},{filterRequest:details=>{const blocked=tools.filterRequest(details);if(blocked)$('decision').textContent='Blocked before relay: '+details.url;return blocked;}});frame.onload=()=>{tools.apply(frame);$('probe').disabled=false;$('counts').disabled=false;$('result').textContent='Test page ready';};handle.go(url);}catch(error){$('result').textContent=error.message;}};
+$('probe').onclick=async()=>{try{const response=await frame.contentWindow.fetch('https://www.google-analytics.com/analytics.js');$('result').textContent='Probe response: HTTP '+response.status;}catch(error){$('result').textContent=error.message;}};
+$('counts').onclick=async()=>{try{const value=await fetchGeekfoxDislikes((...args)=>runtime.fetch(...args),'dQw4w9WgXcQ',AbortSignal.timeout(20000));$('result').textContent='Live dislike API through Geekfox: '+value.dislikes.toLocaleString();}catch(error){$('result').textContent='API error: '+error.message;}};
+</script></html>

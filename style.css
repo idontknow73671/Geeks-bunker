@@ -519,3 +519,36 @@ html { scrollbar-gutter:stable; }
 #geekfox-connection { width:auto;margin:0;padding:10px 32px 10px 12px;border-radius:9px;background-color:#151a2340; }
 #geekfox-connection-state { font-size:11px;color:var(--muted);flex:1;min-width:160px; }
 @media(max-width:650px) { .geekfox-connection-row label { flex:1;justify-content:space-between; } #geekfox-connection { min-width:0;max-width:65%;font-size:11px; } #geekfox-connection-state { flex-basis:100%; } }
+
+.yourgeek-history-dialog { width:min(680px,calc(100% - 32px));max-height:80vh;overflow:auto;color:var(--text);background:#111722ee;backdrop-filter:blur(28px);border:1px solid #ffffff30;border-radius:16px;padding:24px; }
+.yourgeek-history-dialog::backdrop { background:#0009;backdrop-filter:blur(5px); }
+.yourgeek-history-row { display:flex;align-items:center;gap:12px;border-bottom:1px solid #ffffff16;padding:8px 0; }
+.yourgeek-history-open { flex:1;min-width:0;text-align:left;background:transparent;border:0;color:inherit;padding:12px;cursor:pointer;border-radius:8px; }
+.yourgeek-history-open:hover,.yourgeek-history-open:focus-visible { background:#ffffff0e; }
+.yourgeek-history-open strong,.yourgeek-history-open time { display:block;overflow-wrap:anywhere; }
+.yourgeek-history-open time { font-size:11px;color:var(--muted);margin-top:6px; }
+#ai-history-search { width:100%; }
+@media(max-width:550px) { .yourgeek-history-row { flex-wrap:wrap; }.yourgeek-history-open { flex-basis:100%; }.yourgeek-history-dialog { padding:16px; } }
+
+.geekfox-addons-dialog { width:min(640px,calc(100% - 28px)); max-height:85dvh; overflow:auto; color:var(--text,#f4f5f7); background:rgba(18,24,31,.88); border:1px solid var(--line); border-radius:14px; padding:24px; backdrop-filter:blur(28px); }
+.geekfox-addons-dialog::backdrop { background:rgba(0,0,0,.45); backdrop-filter:blur(6px); }
+.geekfox-addon-row { padding:18px 0; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:14px; }
+.geekfox-addon-row label { flex:1; display:flex; align-items:center; gap:12px; font-size:14px; }
+.geekfox-addon-row input { width:20px; height:20px; margin:0; flex:none; accent-color:var(--accent); }
+.geekfox-addon-row small { display:block; color:var(--muted); margin-top:6px; line-height:1.5; overflow-wrap:anywhere; }
+.geekfox-addon-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; }
+.geekfox-addon-actions label { cursor:pointer; }
+.geekfox-addon-actions input[hidden] { display:none; }
+
+.geekfox-addons-dialog input[hidden],.geekfox-xpi-review[hidden] { display:none; }
+.geekfox-xpi-section { padding:20px 0; margin-bottom:20px; border-bottom:1px solid var(--line); }
+.geekfox-xpi-section p { line-height:1.6; margin:12px 0; overflow-wrap:anywhere; }
+.geekfox-xpi-review { padding:18px; margin-top:14px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.04); }
+.geekfox-xpi-review h4 { overflow-wrap:anywhere; }
+.geekfox-xpi-review .setting-row { padding-top:8px; }
+.geekfox-xpi-section>.button { margin-top:14px; }
+
+.geekfox-native-tools { padding:20px 0; border-bottom:1px solid var(--line); }
+.geekfox-native-tools small { display:block; font-size:12px; line-height:1.6; margin-top:7px; }
+.geekfox-native-tools p { line-height:1.6; margin:12px 0; }
+.geekfox-native-tools .setting-row>input { flex:none; }

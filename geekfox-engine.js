@@ -214,7 +214,26 @@
                 const frame = controller.createFrame(element);
                 const plugin = new window._hp75rnc.Plugin('geekfox-' + frame.id);
                 const identity = () => identities[options.getProfile?.()] || null;
-                plugin.tap(frame.hooks.fetch.request, (_,details) => applyIdentityHeaders(details.init,identity()));
+                plugin.tap(frame.hooks.fetch.request, (context,details) => {
+                    applyIdentityHeaders(details.init,identity());
+                    if(!options.filterRequest)return;
+                    const destination=context.request.rawDestination || context.request.destination || '';
+                    const url=String(details.url),isTop=url===lastURL;
+                    const types={script:'script',style:'stylesheet',image:'image',font:'font',audio:'media',video:'media',iframe:'sub_frame',document:'sub_frame','':'xmlhttprequest'};
+                    const type=isTop?'main_frame':types[destination]||'other';
+                    // Early responses stop matching requests before the relay fetch happens.
+                    try {if(options.filterRequest({url,sourceUrl:lastURL,type}))details.earlyResponse=new Response(null,{status:204});}catch{}
+                });
+                if(options.prepareDocumentURL && options.prepareDocument)plugin.tap(frame.hooks.fetch.preresponse,async(context,details)=>{
+                    const response=details.response;
+                    if(context.parsed.url.href!==options.prepareDocumentURL || response.status<200 || response.status>=300)return;
+                    // CDN HTML files are often served as text/plain. Normalize only the selected g8me document.
+                    const html=await options.prepareDocument(await response.text());
+                    const headers=new Headers(response.rawHeaders);headers.set('Content-Type','text/html; charset=utf-8');
+                    for(const name of ['content-length','content-encoding','content-disposition'])headers.delete(name);
+                    const replacement=new Response(html,{status:response.status,statusText:response.statusText,headers});
+                    details.response=typeof response.constructor.fromNativeResponse==='function'?response.constructor.fromNativeResponse(replacement):Object.assign(replacement,{rawHeaders:[...headers]});
+                });
                 plugin.tap(frame.hooks.init.post, context => {
                     const selectedIdentity = identity();
                     if (selectedIdentity) {
@@ -236,6 +255,13 @@
                         const request=++navigation;
                         reconnect().then(()=>{if(!disposed && request===navigation)frame.go(url);}).catch(error=>{if(!disposed)callbacks.error?.(error);});
                     },
+                    currentURL() {
+                        try {
+                            const address=new URL(element.contentWindow.location.href), prefix=new URL(frame.prefix,location.href);
+                            if(address.origin===prefix.origin && address.pathname.startsWith(prefix.pathname))return codec.decode(address.pathname.slice(prefix.pathname.length));
+                        } catch {}
+                        return lastURL;
+                    },
                     back() { frame.back(); },
                     forward() { frame.forward(); },
                     reload() { if (lastURL) this.go(lastURL); },
@@ -247,10 +273,14 @@
             changeConnection:network.change
         };
     }
-    let mediaBoot=null;
+    let mediaBoot=null,g8meBoot=null;
     window.GeekfoxEngine = {
         get preference() { return savedConnection(); },
         connections:connections.map(({id,label}) => ({id,label})),
+        startG8mes(onStatus=()=>{}) {
+            if(!g8meBoot)g8meBoot=initialize(onStatus,'g8mes').catch(error=>{g8meBoot=null;throw error;});
+            return g8meBoot;
+        },
         startMedia(origin,onStatus=()=>{}) {
             if (!['https://api.spf50krem.com','https://api.tuplantaforma.com','https://api.fotograflar.com'].includes(origin)) return Promise.reject(new Error('Unsupported media connection.'));
             if(!mediaBoot)mediaBoot=initialize(onStatus,'media').catch(error=>{mediaBoot=null;throw error;});

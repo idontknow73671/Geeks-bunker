@@ -21,7 +21,7 @@ async function fetchWithTimeout(url, options = {}) {
     const abort = () => timeout.abort();
     if (options.signal?.aborted) abort();
     else options.signal?.addEventListener('abort', abort, { once: true });
-    const timer = setTimeout(abort, 20000);
+    const timer = setTimeout(abort, options.timeout || 20000);
     try {
         const response = await fetch(url, { signal: timeout.signal });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -79,7 +79,8 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
     let activeRequest = null;
     let generation = 0;
     let returnFocus = null;
-    let closing = false;
+    let closing = false, activeHandle=null, activeP8y=false, launchTimer=null,g8meRuntime=null;
+    const p8yLaunch=document.getElementById('gn-p8y-btn');
     const sound = playSound;
     const exitFullscreenOnEscape = event => {
         if (event.key === 'Escape' && document.fullscreenElement === player) {
@@ -218,7 +219,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         await loadCatalog();
     }
 
-    async function openGame(game, trigger = null) {
+    async function openGame(game, trigger = null, viaP8y = false) {
         if (closing) return;
         const displayName = game.name;
         sound();
@@ -231,8 +232,10 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         if (await flushG8meFrame(host.querySelector('iframe')) === false) return;
         if (current !== generation || request.signal.aborted) return;
         activeGame = game;
+        activeHandle?.dispose();activeHandle=null;clearTimeout(launchTimer);activeP8y=viaP8y;
+        p8yLaunch.textContent=viaP8y?'Use direct launch':'Launch through p8y';
         host.replaceChildren();
-        saveStatus.textContent = game.provider === 'lumin' ? 'Provider-managed saves' : 'Preparing autosave…';
+        saveStatus.textContent = viaP8y ? 'P8y mode · Separate browser save storage' : game.provider === 'lumin' ? 'Provider-managed saves' : 'Preparing autosave…';
         title.textContent = displayName;
         player.classList.remove('hidden');
         document.querySelectorAll('.topbar, main, .dashboard-footer').forEach(element => { element.inert = true; });
@@ -246,17 +249,41 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
             if (current !== generation || request.signal.aborted) return;
             const frame = document.createElement('iframe');
             frame.id = 'gn-game-frame'; frame.title = displayName;
-            frame.allow = 'autoplay; fullscreen; gamepad; clipboard-write'; frame.allowFullscreen = true;
+            frame.allow = 'autoplay; fullscreen; gamepad; clipboard-write';frame.tabIndex=0; frame.allowFullscreen = true;
             frame.addEventListener('load', () => {
                 if (current !== generation) return;
+                try { if(frame.contentDocument?.URL === 'about:blank')return; } catch {}
+                clearTimeout(launchTimer);
+                try {
+                    const doc=frame.contentDocument;
+                    if(doc && (/^Error response$|^Error processing your request$/.test(doc.title)||/^Internal Service Worker Error:|^Geekfox connection expired/.test(doc.body?.innerText?.trim()||''))) {
+                        status.textContent='This connection could not load the g8me. Retry or switch launch mode.';retry.classList.remove('hidden');message.classList.remove('hidden');return;
+                    }
+                    doc?.addEventListener('keydown',exitFullscreenOnEscape,true);
+                    doc?.addEventListener('pointerdown',()=>frame.contentWindow?.focus(),true);
+                } catch {}
                 message.classList.add('hidden');
-                try { frame.contentDocument?.addEventListener('keydown', exitFullscreenOnEscape, true); } catch {}
                 frame.contentWindow?.focus();
                 document.dispatchEvent(new CustomEvent('gameplayed', {detail:game}));
-            }, {once:true});
-            if (isDocument) frame.srcdoc = value; else frame.src = value;
+            });
+            if (isDocument) frame.srcdoc = value; else if(!viaP8y)frame.src = value;
             host.replaceChildren(frame);
+            launchTimer=setTimeout(()=>{if(current===generation){status.textContent='This g8me is taking longer than expected. Retry, or switch launch mode.';retry.classList.remove('hidden');message.classList.remove('hidden');}},60000);
+            if(viaP8y)return frame;
         };
+        if(viaP8y) {
+            try {
+                const engine=window.parent.GeekfoxEngine||window.GeekfoxEngine;
+                if(g8meRuntime)await g8meRuntime.changeConnection(engine.preference);
+                else g8meRuntime=await engine.startG8mes();
+                const runtime=g8meRuntime;
+                const url=game.provider==='lumin'?await resolveLuminGame(game.id):game.urls[0];
+                if(current!==generation||request.signal.aborted)return;
+                const frame=mountFrame(url,false);
+                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{prepareDocumentURL:game.provider==='lumin'?null:url,prepareDocument:html=>gameDocument(html,url)});
+                activeHandle.go(url);return;
+            } catch(error) {if(current===generation){status.textContent='P8y launch failed: '+error.message;retry.classList.remove('hidden');}return;}
+        }
         if (game.provider === 'lumin') {
             try { const url = await resolveLuminGame(game.id); mountFrame(url,false); return; }
             catch (error) {
@@ -267,7 +294,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         }
         for (const url of game.urls) {
             try {
-                const html = withG8meSaves(gameDocument(await fetchWithTimeout(url, {signal:request.signal}),url),game);
+                const html = withG8meSaves(gameDocument(await fetchWithTimeout(url, {signal:request.signal,timeout:60000}),url),game);
                 mountFrame(html,true); return;
             } catch (error) {
                 if (current !== generation || request.signal.aborted) return;
@@ -288,7 +315,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         ++generation;
         activeRequest?.abort();
         if (await flushG8meFrame(host.querySelector('iframe')) === false) { closing = false; close.disabled = false; return; }
-        activeGame = null;
+        activeGame = null;activeHandle?.dispose();activeHandle=null;clearTimeout(launchTimer);
         // Removing the iframe stops its scripts, audio, timers, and network activity.
         host.replaceChildren();
         if (document.fullscreenElement === player) await document.exitFullscreen().catch(() => {});
@@ -303,8 +330,9 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
     search.addEventListener('input', filterG8mes);
     more.addEventListener('click', () => { sound(); appendG8mes(); });
     catalogRetry.addEventListener('click', loadCatalog);
-    retry.addEventListener('click', () => { if (activeGame) openGame(activeGame); });
-    document.getElementById('gn-reload-btn').addEventListener('click', () => { if (activeGame) openGame(activeGame); });
+    retry.addEventListener('click', () => { if (activeGame) openGame(activeGame,null,activeP8y); });
+    document.getElementById('gn-reload-btn').addEventListener('click', () => { if (activeGame) openGame(activeGame,null,activeP8y); });
+    p8yLaunch.addEventListener('click',()=>{if(activeGame)openGame(activeGame,null,!activeP8y);});
     close.addEventListener('click', closeGame);
     fullscreen.disabled = !player.requestFullscreen;
     fullscreen.addEventListener('click', async () => {
