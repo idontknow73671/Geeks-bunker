@@ -552,3 +552,65 @@ Fixed canvases use contain/fill within the selected viewport; direct cross-origi
 providers still control their own internal layout. Controls hide in fullscreen
 along with the toolbar. Browser verification covered Half-Life at a 640×480
 preset and custom 800×600, with stretch both enabled and disabled.
+
+
+### Built-in auto-clicker
+
+Open **Auto-clicker** in the g8me toolbar. It follows the live cursor inside
+accessible g8me frames; no target selection is required. Move over the g8me and
+press the configured hotkey, or press Start and then move into the g8me. Moving
+into the toolbar or outside the g8me suspends input until the cursor returns.
+Resizing clears stale coordinates until the next pointer movement.
+
+Choose an interval from 10 to 60,000 milliseconds and an optional click limit
+(0 means unlimited). The default hotkey is F8; click its button to record a
+letter, digit, Space, or F1–F12, optionally with Ctrl, Alt, or Shift. Escape
+stops clicking or cancels recording. Text fields ignore toggle hotkeys. The
+interval, limit, and hotkey persist; cursor position and running state do not.
+The fullscreen stop indicator remains available. Leaving the tab or changing
+g8mes stops the loop. Direct cross-origin frames may require p8y.
+
+Mouse events now use detail:1. Cookie Clicker treats detail:0 as keyboard
+input and applies a much lower click-rate limit. For its bigCookie element,
+the counter reads the change in Game.cookieClicks after normal event dispatch
+and only counts accepted clicks; rejected clicks do not consume the limit.
+No cookies or g8me state are written directly. In other g8mes the counter is
+explicitly labelled clicks sent, since their internal input acceptance cannot
+be inferred universally. Browser timing and native g8me rate limits still apply.
+
+Verified at a requested 10 ms interval: 100 accepted auto-clicks increased
+Cookie Clicker from 10 to 110 cookies, and the loop stopped at the limit.
+Tests also cover idle/rejected ticks not consuming a finite limit.
+
+
+### Portable progress files
+
+The player toolbar provides **Export progress** and **Import progress**. Exports
+are versioned `.json` data files, not copies of the g8me. A **Save progress file**
+link remains available if automatic downloading is blocked. They include only
+the current title's isolated localStorage and IndexedDB databases opened by its
+save adapter. Typed arrays, ArrayBuffers, blobs and dates retain their types.
+Cookie Clicker requests a native save before export; native filesystem and
+Geometry Dash save flushing use the existing adapter. Save in the g8me first.
+
+This version supports GN Math direct launch. P8y and cross-origin/provider-owned
+saves are explicitly unsupported; use those titles' own export controls. Database
+names must already have been opened by the current g8me, and store schemas must
+match, so on a new browser play/save once before importing database-backed saves.
+No export can capture unsaved RAM state or server-side accounts. Database records
+may include cached data if a provider mixes it into its save database.
+
+Imports check format/version, title/provider identity, storage entries, binary
+records, database names and schemas. Files are limited to 50 MB. Confirming the
+replace prompt stops the running title before restoring storage, then restarts
+it to load the imported save. Transaction failure triggers rollback to the
+pre-import snapshot. Keep an exported copy before replacing important progress.
+Site profile settings, other g8mes' localStorage, and Geekfox state are excluded.
+
+Verification: 30 unit tests passed; a separate fake-indexeddb integration check
+round-tripped a JSON snapshot containing localStorage, binary filesystem records
+and timestamps, preserved site settings, and rolled back a unique-index failure.
+A real SVG-player import loaded a known 2048 board with score 1234. Cookie Clicker
+export prepared a progress JSON download link. The in-app browser's download
+testing API does not support blob downloads in embedded frames, so automatic
+file delivery there could not be verified.

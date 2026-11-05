@@ -52,6 +52,10 @@ def build():
     gn_import = 'import { initializeGnMath } from "./gn-math.js";'
     if script.count(gn_import) != 1:
         raise SystemExit('Expected one initializeGnMath import in script.js.')
+    backups = (ROOT / 'g8me-backups.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('export async function ', 'async function ')
+    gn_math = gn_math.replace('import { captureG8meBackup, validateG8meBackup, restoreG8meBackup } from "./g8me-backups.js";', backups)
+    clicker = (ROOT / 'g8me-autoclicker.js').read_text(encoding='utf-8').replace('export function ', 'function ')
+    gn_math = gn_math.replace('import { initializeG8meAutoClicker } from "./g8me-autoclicker.js";', clicker)
     display = (ROOT / 'g8me-display.js').read_text(encoding='utf-8').replace('export function ', 'function ')
     gn_math = gn_math.replace('import { attachG8meDisplay } from "./g8me-display.js";', display)
     saves = (ROOT / 'g8me-saves.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('export async function ', 'async function ')

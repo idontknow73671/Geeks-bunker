@@ -1,3 +1,5 @@
+import { captureG8meBackup, validateG8meBackup, restoreG8meBackup } from "./g8me-backups.js";
+import { initializeG8meAutoClicker } from "./g8me-autoclicker.js";
 import { attachG8meDisplay } from "./g8me-display.js";
 import { loadLuminCatalog, loadLuminCover, resolveLuminGame } from "./lumin.js";
 import { withG8meSaves, flushG8meFrame } from "./g8me-saves.js";
@@ -94,6 +96,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
     for(const input of [displayWidth,displayHeight])input.addEventListener('input',()=>{resolution.value='custom';});
     displayButton.addEventListener('click',()=>{displayPanel.classList.toggle('hidden');displayButton.setAttribute('aria-expanded',String(!displayPanel.classList.contains('hidden')));});
     displayPanel.addEventListener('submit',event=>{event.preventDefault();if(!displayPanel.reportValidity())return;displaySettings={stretch:displayStretch.checked};if(resolution.value!=='auto')Object.assign(displaySettings,{width:Math.round(Number(displayWidth.value)),height:Math.round(Number(displayHeight.value))});try{localStorage.setItem('gb-g8me-display',JSON.stringify(displaySettings));}catch{}host.dispatchEvent(new Event('g8me-display-change'));});
+    const autoClicker=initializeG8meAutoClicker({host,player});
     let source = 'gn';
     let catalogGeneration = 0;
     const catalogs = new Map();
@@ -104,7 +107,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
     let activeRequest = null;
     let generation = 0;
     let returnFocus = null;
-    let closing = false, activeHandle=null, activeP8y=false, launchTimer=null,g8meRuntime=null,stopDisplay=null;
+    let closing = false, activeHandle=null, activeP8y=false, launchTimer=null,g8meRuntime=null,stopDisplay=null,stopClicker=null;
     const p8yLaunch=document.getElementById('gn-p8y-btn');
     const sound = playSound;
     const exitFullscreenOnEscape = event => {
@@ -257,7 +260,8 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         if (await flushG8meFrame(host.querySelector('iframe')) === false) return;
         if (current !== generation || request.signal.aborted) return;
         activeGame = game;
-        activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;clearTimeout(launchTimer);activeP8y=viaP8y;
+        if(progressDownloadURL){URL.revokeObjectURL(progressDownloadURL);progressDownloadURL=null;}progressDownload.classList.add('hidden');progressDownload.removeAttribute('href');progressStatus.textContent='';
+        activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;stopClicker?.();stopClicker=null;clearTimeout(launchTimer);activeP8y=viaP8y;
         p8yLaunch.textContent=viaP8y?'Use direct launch':'Launch through p8y';
         host.replaceChildren();
         saveStatus.textContent = viaP8y ? 'P8y mode · Separate browser save storage' : game.provider === 'lumin' ? 'Provider-managed saves' : 'Preparing autosave…';
@@ -275,6 +279,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
             const frame = document.createElement('iframe');
             frame.id = 'gn-game-frame'; frame.title = displayName;
             frame.allow = 'autoplay; fullscreen; gamepad; clipboard-write';frame.tabIndex=0; frame.allowFullscreen = true;
+            stopClicker=autoClicker.attach(frame);
             stopDisplay=attachG8meDisplay(frame,host,()=>displaySettings);
             frame.addEventListener('load', () => {
                 if (current !== generation) return;
@@ -348,7 +353,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         ++generation;
         activeRequest?.abort();
         if (await flushG8meFrame(host.querySelector('iframe')) === false) { closing = false; close.disabled = false; return; }
-        activeGame = null;activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;clearTimeout(launchTimer);
+        activeGame = null;activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;stopClicker?.();stopClicker=null;clearTimeout(launchTimer);
         // Removing the iframe stops its scripts, audio, timers, and network activity.
         host.replaceChildren();
         if (document.fullscreenElement === player) await document.exitFullscreen().catch(() => {});
@@ -364,6 +369,27 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
     more.addEventListener('click', () => { sound(); appendG8mes(); });
     catalogRetry.addEventListener('click', loadCatalog);
     retry.addEventListener('click', () => { if (activeGame) openGame(activeGame,null,activeP8y); });
+    const exportProgress=document.getElementById('gn-export-progress'),importProgress=document.getElementById('gn-import-progress'),progressFile=document.getElementById('gn-progress-file'),progressStatus=document.getElementById('gn-progress-status'),progressDownload=document.getElementById('gn-progress-download');
+    let progressDownloadURL=null;
+    function progressBusy(value){for(const control of player.querySelectorAll('button'))control.disabled=value;fullscreen.disabled=value||!player.requestFullscreen;}
+    exportProgress.addEventListener('click',async()=>{
+        if(!activeGame)return;progressBusy(true);autoClicker.stop();
+        try{const backup=await captureG8meBackup(host.querySelector('iframe'),activeGame);const blob=new Blob([JSON.stringify(backup)],{type:'application/json'});if(blob.size>50*1024*1024)throw Error('This save is larger than the 50 MB progress-file limit. Use the g8me’s native export.');const url=URL.createObjectURL(blob);if(progressDownloadURL)URL.revokeObjectURL(progressDownloadURL);progressDownloadURL=url;const link=progressDownload;link.href=url;link.download=(activeGame.name.replace(/[^a-z0-9_-]+/gi,'-').slice(0,60)||'g8me')+'-progress.json';link.classList.remove('hidden');link.click();progressStatus.textContent='Progress file ready · Use Save progress file if the download did not start.';}
+        catch(error){progressStatus.textContent=error.message;}finally{progressBusy(false);}
+    });
+    importProgress.addEventListener('click',()=>{progressFile.value='';progressFile.click();});
+    progressFile.addEventListener('change',async()=>{
+        const file=progressFile.files[0];if(!file||!activeGame)return;
+        if(file.size>50*1024*1024){progressStatus.textContent='Progress files must be smaller than 50 MB.';return;}
+        progressBusy(true);autoClicker.stop();const game=activeGame,mode=activeP8y;let removed=false;
+        try{
+            const data=JSON.parse(await file.text());const rollback=await captureG8meBackup(host.querySelector('iframe'),game,true);
+            validateG8meBackup(data,game,rollback.databases.map(db=>db.name));
+            if(!window.confirm('Replace saved progress for '+game.name+' with this file? The g8me will restart. Export your current progress first if you want to keep it.'))return;
+            activeRequest?.abort();++generation;activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;stopClicker?.();stopClicker=null;clearTimeout(launchTimer);host.replaceChildren();removed=true;
+            await restoreG8meBackup(data,game,rollback);await openGame(game,null,mode);progressStatus.textContent='Progress imported · G8me restarted.';
+        }catch(error){if(removed)await openGame(game,null,mode);progressStatus.textContent='Import failed: '+error.message;}finally{progressBusy(false);}
+    });
     document.getElementById('gn-reload-btn').addEventListener('click', () => { if (activeGame) openGame(activeGame,null,activeP8y); });
     p8yLaunch.addEventListener('click',()=>{if(activeGame)openGame(activeGame,null,!activeP8y);});
     close.addEventListener('click', closeGame);

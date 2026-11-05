@@ -1,0 +1,9 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {encodeG8meValue,decodeG8meValue,validateG8meBackup} from '../g8me-backups.js';
+const identity={provider:'gn',id:'test',name:'Test'};
+const file=()=>({format:'geeks-bunker-progress',version:1,g8me:identity,storage:[['save','123']],databases:[]});
+test('progress codec round trips file bytes, dates, arrays, undefined and object keys',async()=>{const original={save:new Uint8Array([0,128,255]),date:new Date('2026-11-05T00:00:00Z'),list:[1,null,undefined],buffer:new Uint16Array([256,65535])};const restored=decodeG8meValue(JSON.parse(JSON.stringify(await encodeG8meValue(original))));assert.deepEqual(restored,original);const blob=decodeG8meValue(await encodeG8meValue(new Blob(['saved filesystem'],{type:'text/plain'})));assert.equal(await blob.text(),'saved filesystem');});
+test('file identity, version and scoped database allowlist are checked before restore',()=>{assert.equal(validateG8meBackup(file(),identity).storage[0][1],'123');for(const change of [{format:'html'},{version:2},{g8me:{provider:'lumin',id:'test'}},{g8me:{provider:'gn',id:'other'}},{databases:[{name:'site-private-data',stores:[]}]}])assert.throws(()=>validateG8meBackup({...file(),...change},identity));});
+test('malformed local storage, duplicate keys and invalid binary records are rejected',()=>{for(const storage of [[['save',123]],[['x','1'],['x','2']],[['__databases__','[]']]])assert.throws(()=>validateG8meBackup({...file(),storage},identity));assert.throws(()=>decodeG8meValue({t:'bytes',kind:'constructor',v:'AA=='}));assert.throws(()=>decodeG8meValue({t:'date',v:'invalid'}));});
+test('decoded prototype-looking keys remain data without modifying prototypes',async()=>{const encoded={t:'object',v:[['__proto__',{t:'object',v:[['polluted',true]]}]]};const restored=decodeG8meValue(encoded);assert.equal(restored.__proto__.polluted,true);assert.equal({}.polluted,undefined);});

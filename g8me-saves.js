@@ -2,17 +2,19 @@
 function installG8meStorage(identity) {
     const prefix = 'gbG8meSave:' + identity.provider + ':' + identity.id + ':';
     let backing, ready = false;
+    const databases = new Set();
     let flushTimer;
     const pendingWrites = new Set();
     const pendingOpens = new Set();
     let lastStorageActivity = 0;
     let flushInFlight = null;
-    const visible = key => key !== '__check__' && key !== '__cleared__' && !key.startsWith('__removed__:');
+    const visible = key => key !== '__check__' && key !== '__cleared__' && !key.startsWith('__removed__:') && key !== '__databases__';
     const notify = (state, detail = '') => {
         parent.postMessage({type:'gb-g8me-save', id:String(identity.id), provider:identity.provider, state, detail}, '*');
     };
     try {
         backing = window.localStorage;
+        try { for(const name of JSON.parse(backing.getItem(prefix+'__databases__')||'[]'))if(typeof name==='string')databases.add(name); } catch {}
         const probe = prefix + '__check__';
         backing.setItem(probe, '1'); backing.removeItem(probe); ready = true;
     } catch { notify('unavailable', 'Browser storage is unavailable.'); }
@@ -119,6 +121,8 @@ function installG8meStorage(identity) {
                 corrected.gbRelativeAppData = true;
                 window.savePath = corrected;
             }
+            databases.add(String(args[0]));
+            try { backing?.setItem(prefix+'__databases__',JSON.stringify([...databases])); } catch {}
             const request = open.apply(this,args);
             let finish;
             const done = new Promise(resolve => { finish = resolve; });
@@ -191,7 +195,7 @@ function installG8meStorage(identity) {
         if (!flushInFlight) flushInFlight = flushNow().finally(() => { flushInFlight = null; });
         return flushInFlight;
     }
-    window.__gbG8meSave = {flush, ready};
+    window.__gbG8meSave = {flush, ready, databaseNames:()=>[...databases]};
     if (ready) notify('ready');
 }
 

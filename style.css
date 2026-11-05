@@ -561,3 +561,12 @@ html { scrollbar-gutter:stable; }
 #gn-display-controls select,#gn-display-controls input {margin:0;padding:7px;}
 #gn-display-controls span {color:var(--muted);}
 #gn-game-player:fullscreen #gn-display-controls {display:none;}
+
+#gn-clicker-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;background:rgba(22,24,31,.65);border-bottom:1px solid var(--line);font-size:12px;}
+#gn-clicker-controls label{display:flex;align-items:center;gap:7px;}
+#gn-clicker-controls input{width:90px;margin:0;padding:7px;}
+#gn-clicker-controls p{margin:0;}#gn-clicker-controls small{flex-basis:100%;color:var(--muted);}
+#gn-clicker-stop{position:absolute;right:12px;top:12px;z-index:5;background:rgba(20,25,32,.9);border:1px solid var(--accent);}
+#gn-game-player:fullscreen #gn-clicker-controls{display:none;}
+
+.gn-player-toolbar {flex-wrap:wrap;}
