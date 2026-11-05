@@ -17,7 +17,7 @@
     let boot = null;
     // The SVG origin may deny storage; browsing still works for this visit.
     const savedConnection = () => { try { const id=localStorage.getItem('gbGeekfoxConnection'); return connections.some(item => item.id === id) ? id : 'auto'; } catch { return 'auto'; } };
-    function createConnections(Transport, onStatus, fixedOrigin = null) {
+    function createConnections(Transport, onStatus, fixedOrigin = null, headerTimeout = 15000) {
         const candidates = fixedOrigin ? [{id:'media',label:'Media',origin:fixedOrigin}] : connections;
         let preferred = savedConnection(), current = null, switching = null;
         const sessions = new Map(), failed = new Map(), listeners = new Set();
@@ -68,10 +68,13 @@
                     attempted.add(selected.id);
                     try {
                         const transport = await session(selected);
-                        const deadline = safe ? AbortSignal.timeout(15000) : null;
-                        const requestSignal = signal && deadline ? AbortSignal.any([signal,deadline]) : signal || deadline;
-                        // HTTP errors belong to the destination. Only transport failures trigger a retry.
-                        return await transport.request(url,method,body,headers,requestSignal);
+                        const deadline = safe ? new AbortController() : null;
+                        const timer = deadline ? setTimeout(()=>deadline.abort(new DOMException('Response headers timed out.','TimeoutError')),headerTimeout) : null;
+                        const requestSignal = signal && deadline ? AbortSignal.any([signal,deadline.signal]) : signal || deadline?.signal;
+                        // Time out stalled headers, not an already-streaming WASM/data download.
+                        // The caller's signal still aborts both headers and the response body.
+                        try { return await transport.request(url,method,body,headers,requestSignal); }
+                        finally { if(timer!==null)clearTimeout(timer); }
                     } catch (error) {
                         if (signal?.aborted) throw error;
                         failed.set(selected.id,Date.now()); sessions.delete(selected.id);
@@ -145,7 +148,7 @@
         if (!isSecureContext || !navigator.serviceWorker) throw new Error('Geekfox needs HTTPS or localhost.');
         onStatus('Starting the browsing engine…');
         const base = new URL('.', location.href);
-        const registration = await navigator.serviceWorker.register(new URL('geekfox-worker.js', base), {scope:base.pathname});
+        const registration = await navigator.serviceWorker.register(new URL('geekfox-worker.js', base), {scope:base.pathname,updateViaCache:'none'});
         const worker = await timeout(new Promise((resolve, reject) => {
             const candidate = registration.installing || registration.waiting || registration.active;
             if (!candidate) return reject(new Error('The Geekfox worker could not start.'));
@@ -159,7 +162,7 @@
         await loadScript('dfkw6/jusz03.js');
         // Separate module instances keep media and browser connection settings independent.
         const transportModule = await import(assets + 'assets/' + 'p' + 'roxy-runtime-hRo6K69j-04a19445.js?geekfox=' + encodeURIComponent(transportGroup));
-        const network = createConnections(transportModule.L,onStatus);
+        const network = createConnections(transportModule.L,onStatus,null,transportGroup==='g8mes'?60000:15000);
         const transport = network.adapter;
         await transport.init();
         const controller = new window._zm9ikyq.Controller({
@@ -216,6 +219,9 @@
                 const identity = () => identities[options.getProfile?.()] || null;
                 plugin.tap(frame.hooks.fetch.request, (context,details) => {
                     applyIdentityHeaders(details.init,identity());
+                    if(options.documentHTML!==undefined && context.parsed.url.href===options.prepareDocumentURL && details.init.method==='GET') {
+                        details.earlyResponse=new Response(options.documentHTML,{headers:{'Content-Type':'text/html; charset=utf-8'}});
+                    }
                     if(!options.filterRequest)return;
                     const destination=context.request.rawDestination || context.request.destination || '';
                     const url=String(details.url),isTop=url===lastURL;

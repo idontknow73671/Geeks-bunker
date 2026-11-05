@@ -1,3 +1,4 @@
+import { attachG8meDisplay } from "./g8me-display.js";
 import { loadLuminCatalog, loadLuminCover, resolveLuminGame } from "./lumin.js";
 import { withG8meSaves, flushG8meFrame } from "./g8me-saves.js";
 // GN Math integration using the same catalog mirror and fetch-to-iframe approach
@@ -52,6 +53,19 @@ function gameDocument(html, url) {
     return element + html;
 }
 
+export async function fetchP8yG8meDocument(runtime,urls,signal) {
+    let failure;
+    for(const url of urls){
+        signal.throwIfAborted();
+        try{
+            const response=await runtime.fetch(url,{signal:AbortSignal.any([signal,AbortSignal.timeout(60000)])});
+            if(!response.ok)throw new Error('HTTP '+response.status);
+            return {url,documentHTML:gameDocument(await response.text(),url)};
+        }catch(error){signal.throwIfAborted();failure=error;}
+    }
+    throw failure||new Error('None of the g8me document mirrors responded.');
+}
+
 export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = () => {} }) {
     const grid = document.getElementById('g8mes-grid');
     const search = document.getElementById('g8me-search-input');
@@ -69,6 +83,17 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
     const saveStatus = document.getElementById('gn-save-status');
     if (!grid || !player) return;
 
+    const displayPanel=document.getElementById('gn-display-controls'),displayButton=document.getElementById('gn-display-btn');
+    const resolution=document.getElementById('gn-resolution'),displayWidth=document.getElementById('gn-display-width'),displayHeight=document.getElementById('gn-display-height'),displayStretch=document.getElementById('gn-display-stretch');
+    let displaySettings={};
+    try{const saved=JSON.parse(localStorage.getItem('gb-g8me-display')||'{}');if(saved.width>=320&&saved.width<=7680&&saved.height>=240&&saved.height<=4320)displaySettings={width:Math.round(saved.width),height:Math.round(saved.height)};displaySettings.stretch=saved.stretch===true;}catch{}
+    resolution.value=displaySettings.width?([...resolution.options].some(o=>o.value===displaySettings.width+'x'+displaySettings.height)?displaySettings.width+'x'+displaySettings.height:'custom'):'auto';
+    displayWidth.value=displaySettings.width||1280;displayHeight.value=displaySettings.height||720;displayStretch.checked=!!displaySettings.stretch;
+    function updateResolution(){const automatic=resolution.value==='auto';displayWidth.disabled=automatic;displayHeight.disabled=automatic;if(!automatic&&resolution.value!=='custom'){const [w,h]=resolution.value.split('x');displayWidth.value=w;displayHeight.value=h;}}
+    updateResolution();resolution.addEventListener('change',updateResolution);
+    for(const input of [displayWidth,displayHeight])input.addEventListener('input',()=>{resolution.value='custom';});
+    displayButton.addEventListener('click',()=>{displayPanel.classList.toggle('hidden');displayButton.setAttribute('aria-expanded',String(!displayPanel.classList.contains('hidden')));});
+    displayPanel.addEventListener('submit',event=>{event.preventDefault();if(!displayPanel.reportValidity())return;displaySettings={stretch:displayStretch.checked};if(resolution.value!=='auto')Object.assign(displaySettings,{width:Math.round(Number(displayWidth.value)),height:Math.round(Number(displayHeight.value))});try{localStorage.setItem('gb-g8me-display',JSON.stringify(displaySettings));}catch{}host.dispatchEvent(new Event('g8me-display-change'));});
     let source = 'gn';
     let catalogGeneration = 0;
     const catalogs = new Map();
@@ -79,7 +104,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
     let activeRequest = null;
     let generation = 0;
     let returnFocus = null;
-    let closing = false, activeHandle=null, activeP8y=false, launchTimer=null,g8meRuntime=null;
+    let closing = false, activeHandle=null, activeP8y=false, launchTimer=null,g8meRuntime=null,stopDisplay=null;
     const p8yLaunch=document.getElementById('gn-p8y-btn');
     const sound = playSound;
     const exitFullscreenOnEscape = event => {
@@ -232,7 +257,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         if (await flushG8meFrame(host.querySelector('iframe')) === false) return;
         if (current !== generation || request.signal.aborted) return;
         activeGame = game;
-        activeHandle?.dispose();activeHandle=null;clearTimeout(launchTimer);activeP8y=viaP8y;
+        activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;clearTimeout(launchTimer);activeP8y=viaP8y;
         p8yLaunch.textContent=viaP8y?'Use direct launch':'Launch through p8y';
         host.replaceChildren();
         saveStatus.textContent = viaP8y ? 'P8y mode · Separate browser save storage' : game.provider === 'lumin' ? 'Provider-managed saves' : 'Preparing autosave…';
@@ -250,6 +275,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
             const frame = document.createElement('iframe');
             frame.id = 'gn-game-frame'; frame.title = displayName;
             frame.allow = 'autoplay; fullscreen; gamepad; clipboard-write';frame.tabIndex=0; frame.allowFullscreen = true;
+            stopDisplay=attachG8meDisplay(frame,host,()=>displaySettings);
             frame.addEventListener('load', () => {
                 if (current !== generation) return;
                 try { if(frame.contentDocument?.URL === 'about:blank')return; } catch {}
@@ -274,15 +300,22 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         if(viaP8y) {
             try {
                 const engine=window.parent.GeekfoxEngine||window.GeekfoxEngine;
+                status.textContent='Connecting to a p8y relay…';
+                if(!engine)throw new Error('The browsing engine is missing. Rebuild index.svg.');
                 if(g8meRuntime)await g8meRuntime.changeConnection(engine.preference);
                 else g8meRuntime=await engine.startG8mes();
                 const runtime=g8meRuntime;
-                const url=game.provider==='lumin'?await resolveLuminGame(game.id):game.urls[0];
+                let url,documentHTML;
+                if(game.provider==='lumin')url=await resolveLuminGame(game.id);
+                else {
+                    status.textContent='Loading '+displayName+' through p8y…';
+                    ({url,documentHTML}=await fetchP8yG8meDocument(runtime,game.urls,request.signal));
+                }
                 if(current!==generation||request.signal.aborted)return;
                 const frame=mountFrame(url,false);
-                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{prepareDocumentURL:game.provider==='lumin'?null:url,prepareDocument:html=>gameDocument(html,url)});
+                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{prepareDocumentURL:game.provider==='lumin'?null:url,documentHTML,prepareDocument:html=>gameDocument(html,url)});
                 activeHandle.go(url);return;
-            } catch(error) {if(current===generation){status.textContent='P8y launch failed: '+error.message;retry.classList.remove('hidden');}return;}
+            } catch(error) {if(current===generation){status.textContent='P8y launch failed: '+error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}return;}
         }
         if (game.provider === 'lumin') {
             try { const url = await resolveLuminGame(game.id); mountFrame(url,false); return; }
@@ -315,7 +348,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         ++generation;
         activeRequest?.abort();
         if (await flushG8meFrame(host.querySelector('iframe')) === false) { closing = false; close.disabled = false; return; }
-        activeGame = null;activeHandle?.dispose();activeHandle=null;clearTimeout(launchTimer);
+        activeGame = null;activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;clearTimeout(launchTimer);
         // Removing the iframe stops its scripts, audio, timers, and network activity.
         host.replaceChildren();
         if (document.fullscreenElement === player) await document.exitFullscreen().catch(() => {});

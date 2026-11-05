@@ -52,11 +52,13 @@ def build():
     gn_import = 'import { initializeGnMath } from "./gn-math.js";'
     if script.count(gn_import) != 1:
         raise SystemExit('Expected one initializeGnMath import in script.js.')
+    display = (ROOT / 'g8me-display.js').read_text(encoding='utf-8').replace('export function ', 'function ')
+    gn_math = gn_math.replace('import { attachG8meDisplay } from "./g8me-display.js";', display)
     saves = (ROOT / 'g8me-saves.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('export async function ', 'async function ')
     gn_math = gn_math.replace('import { withG8meSaves, flushG8meFrame } from "./g8me-saves.js";', saves)
     gn_math = gn_math.replace('import { loadLuminCatalog, loadLuminCover, resolveLuminGame } from "./lumin.js";', '')
     lumin = (ROOT / 'lumin.js').read_text(encoding='utf-8').replace('export async function ', 'async function ')
-    script = script.replace(gn_import, lumin + '\n' + gn_math.replace('export function initializeGnMath', 'function initializeGnMath', 1))
+    script = script.replace(gn_import, lumin + '\n' + gn_math.replace('export async function ', 'async function ').replace('export function initializeGnMath', 'function initializeGnMath', 1))
 
     # Store supplied wallpapers once in the application; thumbnails and the
     # dashboard background share these exact data URLs.

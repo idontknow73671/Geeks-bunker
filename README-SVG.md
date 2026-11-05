@@ -513,3 +513,42 @@ relay-only RYD fetches, rate limits and invalid API data. Run:
 For the manual integration fixture, copy `tests/geekfox-features-harness.html`
 to the root as `geekfox-features-check.html` while testing, serve the checkout,
 and remove that temporary copy when finished (the worker must be beside it).
+
+
+## P8y g8me loading and display fitting
+
+P8y requests now cancel their header deadline once headers arrive, so the same
+deadline cannot cut off a still-streaming WASM or data download. G8me requests
+allow 60 seconds for response headers; caller cancellation remains connected.
+GN Math document loading tries its alternative HTML mirrors through p8y and
+passes the selected document into the rewriter at its real source URL.
+
+Fixed-size canvas g8mes scale up or down to fit the player while preserving the
+canvas aspect ratio. The whole frame scales together, keeping HTML overlays and
+pointer coordinates aligned; the native rendering buffer is unchanged. Small,
+stretched, and oversized/cropped canvases are handled, including player resizing
+and fullscreen. Unused space stays black. Already responsive canvases are left
+alone. Cross-origin direct provider frames retain their own sizing behavior
+because the parent cannot inspect their canvas.
+
+Verification includes a regression that fails against the previous transport,
+mirror fallback and cancellation checks, and viewport geometry tests. Browser
+checks covered a 640-by-480 fixture in landscape, portrait, and fullscreen, with
+a round test pattern and correctly mapped center click. Half-Life reached its
+menu through p8y; a separate fixed-resolution Half-Life check displayed its full
+4:3 menu without cropping. Full Half-Life gameplay and the entire catalog have
+not been certified. Run all tests with `node --test tests/*.test.mjs`.
+
+
+### Player display controls
+
+Open **Display** in the g8me toolbar to choose Automatic, 640×480, 1280×720,
+1920×1080, or a custom viewport (320–7680 wide, 240–4320 high). Choose
+**Stretch to fill screen** to use independent horizontal and vertical scaling;
+leave it off to preserve the canvas proportions. Apply updates the running player
+without reloading the g8me and saves the selection in this browser. These are
+viewport dimensions, not a guarantee of a particular native rendering resolution.
+Fixed canvases use contain/fill within the selected viewport; direct cross-origin
+providers still control their own internal layout. Controls hide in fullscreen
+along with the toolbar. Browser verification covered Half-Life at a 640×480
+preset and custom 800×600, with stretch both enabled and disabled.
