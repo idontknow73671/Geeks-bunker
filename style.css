@@ -570,3 +570,5 @@ html { scrollbar-gutter:stable; }
 #gn-game-player:fullscreen #gn-clicker-controls{display:none;}
 
 .gn-player-toolbar {flex-wrap:wrap;}
+
+.web-g8me-art {display:flex;align-items:center;justify-content:center;font-size:72px;font-weight:600;color:var(--accent);background:rgba(22,24,31,.35);}

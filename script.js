@@ -384,7 +384,7 @@ function renderFeatured(g8mes) {
             image.homeCoverObserver=observer;
         } else if(game.cover) image.src=game.cover;
          image.addEventListener('error',()=>image.remove(),{once:true});
-        const art=document.createElement('span');art.className='home-game-art';art.append(image);
+        const art=document.createElement('span');art.className='home-game-art';if(game.art){art.textContent=game.art;art.classList.add('web-g8me-art');}else art.append(image);
         const label=document.createElement('span');label.className='featured-caption';label.textContent=game.name;
         card.addEventListener('keydown',event=>{
             if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;

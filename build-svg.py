@@ -62,7 +62,7 @@ def build():
     gn_math = gn_math.replace('import { withG8meSaves, flushG8meFrame } from "./g8me-saves.js";', saves)
     gn_math = gn_math.replace('import { loadLuminCatalog, loadLuminCover, resolveLuminGame } from "./lumin.js";', '')
     lumin = (ROOT / 'lumin.js').read_text(encoding='utf-8').replace('export async function ', 'async function ')
-    script = script.replace(gn_import, lumin + '\n' + gn_math.replace('export async function ', 'async function ').replace('export function initializeGnMath', 'function initializeGnMath', 1))
+    script = script.replace(gn_import, lumin + '\n' + gn_math.replace('export async function ', 'async function ').replace('export function ', 'function '))
 
     # Store supplied wallpapers once in the application; thumbnails and the
     # dashboard background share these exact data URLs.
@@ -119,7 +119,7 @@ def build():
   <foreignObject x="0" y="0" width="100%" height="100%">
     <div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%">
       <iframe id="site" title="Geeks Bunker" style="display:block;width:100%;height:100%;border:0"
-              allow="autoplay; fullscreen; clipboard-write" allowfullscreen="allowfullscreen"></iframe>
+              allow="autoplay; fullscreen; clipboard-write; cross-origin-isolated" allowfullscreen="allowfullscreen"></iframe>
       <noscript>This website needs JavaScript enabled.</noscript>
     </div>
   </foreignObject>

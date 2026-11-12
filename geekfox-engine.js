@@ -4,7 +4,11 @@
     // Additional providers identified from their published CDN deployments.
     const connections = [
         ['daydream','DayDream X','https://geeksbunkerconnect.nightwisp.me.cdn.cloudflare.net'],
-        ['mercury','Mercury','https://wisp.mercurywork.shop'],
+        ['aude','Aude','https://api.garnier-audebourg.org'],
+        ['bike','Bike','https://bikesense.org'],
+        ['idea','Idea','https://api.whatastupididea.com'],
+        ['shred','Shred','https://api.shredstreet.com'],
+        ['alcrb','ALCRB','https://api.alcrb.ru'],
         ['krem','Krem','https://api.spf50krem.com'],
         ['planta','Planta','https://api.tuplantaforma.com'],
         ['foto','Foto','https://api.fotograflar.com'],
@@ -41,14 +45,17 @@
                     notify('Checking ' + candidate.label + ' connection…');
                     try {
                         const transport = await session(candidate);
-                        const response = await transport.request(new URL('https://www.gstatic.com/generate_204'),'GET',null,[],AbortSignal.timeout(10000));
-                        await response.body?.cancel();
-                        if (response.status < 200 || response.status >= 400) throw new Error('Connection check failed.');
+                        let healthy=false,lastProbeError;
+                        for(const address of ['https://www.gstatic.com/generate_204','https://example.org/']){
+                            try{const response=await transport.request(new URL(address),'GET',null,[],AbortSignal.timeout(10000));await response.body?.cancel();if(response.status>=200&&response.status<400){healthy=true;break;}lastProbeError=new Error('Connection check returned HTTP '+response.status);}
+                            catch(error){lastProbeError=error;}
+                        }
+                        if(!healthy)throw lastProbeError||new Error('Connection check failed.');
                         current = candidate;
                         adapter.activeTransport = transport;
                         notify('Connected · ' + candidate.label + (preferred === 'auto' ? ' · Automatic fallback' : ' · Fallback enabled'));
                         return candidate;
-                    } catch { failed.set(candidate.id,Date.now()); sessions.delete(candidate.id); }
+                    } catch(error) { failed.set(candidate.id,Date.now());sessions.delete(candidate.id);notify(candidate.label+' could not connect: '+error.message); }
                 }
                 current = null;
                 notify('No p8y connection is responding. Try Reconnect in a moment.');
@@ -148,7 +155,9 @@
         if (!isSecureContext || !navigator.serviceWorker) throw new Error('Geekfox needs HTTPS or localhost.');
         onStatus('Starting the browsing engine…');
         const base = new URL('.', location.href);
-        const registration = await navigator.serviceWorker.register(new URL('geekfox-worker.js', base), {scope:base.pathname,updateViaCache:'none'});
+        let registration;
+        try{registration=await navigator.serviceWorker.register(new URL('geekfox-worker.js',base),{scope:base.pathname,updateViaCache:'none'});}
+        catch(error){throw new Error('The p8y worker could not register. Keep geekfox-worker.js beside index.svg; this browser may also restrict workers. '+error.message);}
         const worker = await timeout(new Promise((resolve, reject) => {
             const candidate = registration.installing || registration.waiting || registration.active;
             if (!candidate) return reject(new Error('The Geekfox worker could not start.'));
@@ -219,9 +228,6 @@
                 const identity = () => identities[options.getProfile?.()] || null;
                 plugin.tap(frame.hooks.fetch.request, (context,details) => {
                     applyIdentityHeaders(details.init,identity());
-                    if(options.documentHTML!==undefined && context.parsed.url.href===options.prepareDocumentURL && details.init.method==='GET') {
-                        details.earlyResponse=new Response(options.documentHTML,{headers:{'Content-Type':'text/html; charset=utf-8'}});
-                    }
                     if(!options.filterRequest)return;
                     const destination=context.request.rawDestination || context.request.destination || '';
                     const url=String(details.url),isTop=url===lastURL;
@@ -230,9 +236,11 @@
                     // Early responses stop matching requests before the relay fetch happens.
                     try {if(options.filterRequest({url,sourceUrl:lastURL,type}))details.earlyResponse=new Response(null,{status:204});}catch{}
                 });
-                if(options.prepareDocumentURL && options.prepareDocument)plugin.tap(frame.hooks.fetch.preresponse,async(context,details)=>{
+                if(options.mainDocumentURL||options.prepareDocumentURL)plugin.tap(frame.hooks.fetch.preresponse,async(context,details)=>{
                     const response=details.response;
-                    if(context.parsed.url.href!==options.prepareDocumentURL || response.status<200 || response.status>=300)return;
+                    if(context.parsed.url.href!==(options.mainDocumentURL||options.prepareDocumentURL))return;
+                    if(response.status<200||response.status>=300){callbacks.error?.(new Error('The g8me page returned HTTP '+response.status+'. Try again to use another mirror.'));return;}
+                    if(!options.prepareDocumentURL||!options.prepareDocument)return;
                     // CDN HTML files are often served as text/plain. Normalize only the selected g8me document.
                     const html=await options.prepareDocument(await response.text());
                     const headers=new Headers(response.rawHeaders);headers.set('Content-Type','text/html; charset=utf-8');
@@ -274,6 +282,10 @@
                     dispose() { disposed=true; const index = controller.frames.indexOf(frame); if (index >= 0) controller.frames.splice(index, 1); }
                 };
             },
+            async reloadIsolated() {
+                if(!navigator.serviceWorker.controller)await timeout(new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true})),5000,'This browser did not allow the p8y worker to control the page.');
+                const target=new URL(location.href);target.searchParams.set('gb-threaded','1');location.replace(target.href);
+            },
             get origin() { return network.origin; },
             subscribe:network.subscribe,
             changeConnection:network.change
@@ -282,6 +294,7 @@
     let mediaBoot=null,g8meBoot=null;
     window.GeekfoxEngine = {
         get preference() { return savedConnection(); },
+        leaveG8meIsolation(){const target=new URL(location.href);if(target.searchParams.has('gb-threaded')){target.searchParams.delete('gb-threaded');location.replace(target.href);}},
         connections:connections.map(({id,label}) => ({id,label})),
         startG8mes(onStatus=()=>{}) {
             if(!g8meBoot)g8meBoot=initialize(onStatus,'g8mes').catch(error=>{g8meBoot=null;throw error;});

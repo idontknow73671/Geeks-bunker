@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {fitG8meViewport,isFluidG8meCanvas} from '../g8me-display.js';
-import {fetchP8yG8meDocument} from '../gn-math.js';
+import {extraG8mes,g8meP8yURL} from '../gn-math.js';
 const source=fs.readFileSync(process.env.G8ME_TEST_ENGINE || new URL('../geekfox-engine.js',import.meta.url),'utf8');
-function network(behavior){
+function network(behavior,health=()=>Promise.resolve({status:204,body:null})){
  const code=source.slice(source.indexOf('    const connections ='),source.indexOf('    const identities ='));
- class Transport {constructor(options){this.id=options._ind;}async init(){}request(url,method,body,headers,signal){return url.href.endsWith('generate_204')?Promise.resolve({status:204,body:null}):behavior(url,signal,this.id);}}
+ class Transport {constructor(options){this.id=options._ind;}async init(){}request(url,method,body,headers,signal){return url.href.endsWith('generate_204')?health(url,signal,this.id):behavior(url,signal,this.id);}}
  const quickSignal={timeout:ms=>AbortSignal.timeout(ms===15000?15:ms),any:AbortSignal.any.bind(AbortSignal)};
  const context={URL,AbortController,AbortSignal:quickSignal,DOMException,localStorage:{getItem:()=>null,setItem:()=>{}},setTimeout:(fn,ms)=>setTimeout(fn,ms===15000?15:ms),clearTimeout};
  vm.createContext(context);const helper=source.slice(source.indexOf('    const timeout ='),source.indexOf('    const codec ='));vm.runInContext(helper+code+'\nthis.create=createConnections;',context);return context.create(Transport,()=>{});
@@ -25,16 +25,17 @@ test('caller cancellation still aborts an active body download',async()=>{
  const net=network(async(url,signal)=>({status:200,body:new ReadableStream({start(controller){signal.addEventListener('abort',()=>controller.error(signal.reason),{once:true});}})}));
  await net.adapter.init();const caller=new AbortController();const response=await net.adapter.request(new URL('https://example.org/large.data'),'GET',null,[],caller.signal);caller.abort();await assert.rejects(()=>new Response(response.body).text());
 });
-test('p8y document loading retries failed mirrors and preserves the selected asset base',async()=>{
- const seen=[],urls=['https://first.invalid/game.html','https://second.invalid/folder/game.html'];
- const runtime={async fetch(url){seen.push(url);return url===urls[0]?new Response('Unavailable',{status:503}):new Response('<html><head></head><body><canvas></canvas></body></html>');}};
- const result=await fetchP8yG8meDocument(runtime,urls,new AbortController().signal);assert.deepEqual(seen,urls);assert.equal(result.url,urls[1]);assert.match(result.documentHTML,/<base href="https:\/\/second.invalid\/folder\/">/);
+test('external titles retain original URLs, omit tracking and always launch through p8y',async()=>{
+ const titles=extraG8mes();assert.deepEqual(titles.map(g=>g.name),['FivePlay','Half-Life 2']);
+ assert.deepEqual(await Promise.all(titles.map(g=>g8meP8yURL(g))),['https://fiveplay.lol/','https://alexboops.github.io/half-life-2-port/']);
+ assert.ok(titles.every(g=>g.viaP8y&&g.provider==='web'));
 });
-test('p8y rejects non-HTML mirrors and does not continue after cancellation',async()=>{
- const urls=['https://first.invalid/a','https://second.invalid/b'];let count=0;
- const result=await fetchP8yG8meDocument({fetch:async()=>new Response(++count===1?'Not a g8me':'<html><body>ok</body></html>')},urls,new AbortController().signal);assert.equal(result.url,urls[1]);
- const caller=new AbortController();count=0;
- await assert.rejects(()=>fetchP8yG8meDocument({fetch:async()=>{count++;caller.abort();throw new Error('offline');}},urls,caller.signal));assert.equal(count,1);
+test('p8y URL selection needs no document fetch and keeps Lumin resolution separate',async()=>{
+ assert.equal(await g8meP8yURL({provider:'gn',urls:['https://first.example/a.html','https://second.example/a.html']},null,1),'https://second.example/a.html');
+ let resolved;assert.equal(await g8meP8yURL({provider:'lumin',id:42},async id=>{resolved=id;return 'https://example.org/signed-title';}),'https://example.org/signed-title');assert.equal(resolved,42);
+ await assert.rejects(()=>g8meP8yURL({provider:'web',urls:['javascript:alert(1)']}));
+ const code=fs.readFileSync(new URL('../gn-math.js',import.meta.url),'utf8'),p8y=code.slice(code.indexOf('        if(viaP8y) {'),code.indexOf("        if (game.provider === 'lumin')"));
+ assert.doesNotMatch(p8y,/runtime\.fetch|fetchP8yG8meDocument|documentHTML|srcdoc/);assert.match(p8y,/runtime\.attach/);assert.match(p8y,/activeHandle\.go\(url\)/);
 });
 
 test('an oversized canvas is fitted instead of being mistaken for a fluid viewport',()=>{
@@ -48,14 +49,9 @@ test('a header timeout switches relays without replaying POST requests',async()=
  await net.adapter.init();assert.equal((await net.adapter.request(new URL('https://example.org/headers'),'GET',null,[])).status,200);assert.equal(calls,2);
  calls=0;const forms=network(async()=>{calls++;throw new Error('POST failed');});await forms.adapter.init();await assert.rejects(()=>forms.adapter.request(new URL('https://example.org/form'),'POST','value',[]));assert.equal(calls,1);
 });
-test('only the preloaded GET document is served from the selected p8y mirror',async()=>{
- let hook;
- const start=source.indexOf('                plugin.tap(frame.hooks.fetch.request'),end=source.indexOf('                if(options.prepareDocumentURL',start);
- vm.runInNewContext(source.slice(start,end),{plugin:{tap:(_,callback)=>hook=callback},frame:{hooks:{fetch:{request:{}}}},options:{prepareDocumentURL:'https://example.org/title.html',documentHTML:'<html><canvas></canvas></html>'},Response,identity:()=>null,applyIdentityHeaders:()=>{}});
- const context={parsed:{url:new URL('https://example.org/title.html')}};
- const details={url:context.parsed.url,init:{method:'GET'}};hook(context,details);assert.equal(details.earlyResponse.headers.get('content-type'),'text/html; charset=utf-8');assert.match(await details.earlyResponse.text(),/<canvas>/);
- const other={url:new URL('https://example.org/title.data'),init:{method:'GET'}};hook({parsed:{url:other.url}},other);assert.equal(other.earlyResponse,undefined);
- const post={url:context.parsed.url,init:{method:'POST'}};hook(context,post);assert.equal(post.earlyResponse,undefined);
+test('p8y relays exclude the bandwidth-limited demo and include published alternatives',()=>{
+ assert.doesNotMatch(source,/wisp\.mercurywork\.shop/);
+ for(const host of ['api.garnier-audebourg.org','bikesense.org','api.whatastupididea.com','api.shredstreet.com','api.alcrb.ru'])assert.ok(source.includes(host));
 });
 
 test('stretch uses independent axes while aspect fit keeps uniform scale',()=>{
@@ -65,3 +61,5 @@ test('stretch uses independent axes while aspect fit keeps uniform scale',()=>{
  const fit=fitG8meViewport(800,600,1920,1080,false);
  assert.equal(fit.scaleX,fit.scaleY);assert.equal(fit.width,1440);assert.equal(fit.height,1080);
 });
+
+test('a blocked connectivity host does not reject a relay that can fetch other pages',async()=>{let checks=0;const net=network(async url=>{assert.equal(url.href,'https://example.org/');checks++;return {status:200,body:null};},async()=>({status:403,body:null}));await net.adapter.init();assert.equal(checks,1);assert.ok(net.origin.includes('nightwisp'));});

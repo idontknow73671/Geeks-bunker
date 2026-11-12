@@ -33,12 +33,13 @@ live deployment was performed as part of this redesign.
 
 ## Geekfox connections
 
-Geekfox now uses ten free WISP connections: DayDream X and Mercury, followed by
-eight connections from the Achroma service pool:
-Krem, Planta, Foto, Shor, Tenspot, RYM, BSFA, and Jure. The old ping-only relay
-selection has been removed. Each candidate must fetch an HTTPS connectivity
-check through its actual transport before it is selected. All eight also fetched
-Wikipedia successfully during the October 24, 2026 local verification.
+Geekfox uses the shared fallback pool listed in `geekfox-engine.js`. The November
+12 update adds five backends published in Achroma's deployment: Aude, Bike, Idea,
+Shred, and ALCRB. Each passed an actual HTTPS fetch of example.org through the
+bundled transport, not just a WebSocket handshake. The Mercury demo endpoint
+was removed: its operator requests no public-site usage and caps bandwidth.
+Connectivity selection tries both Google's generate_204 endpoint and example.org;
+one blocked connectivity hostname no longer rejects an otherwise working relay.
 
 Automatic is the default. If a connection fails, GET/HEAD requests try the other
 available connections; recently failed connections get a short cooldown. Ordinary
@@ -310,7 +311,7 @@ image endpoint and normalized title fields. Popular, Top rated, Discover, the
 combined collection, search and the saved watchlist remain. The source menu uses
 the reference's VidZee, vidsrc.su and CineSrc player URLs directly, without the
 previous source-list API or shortened links. Source choice persists. Movies use
-a separate Geekfox media connection with the ten-connection fallback pool above;
+a separate Geekfox media connection with the shared fallback pool above;
 regular Geekfox browsing and YourGeek retain their own connection instance.
 The two required publication files remain index.svg and geekfox-worker.js.
 
@@ -326,7 +327,7 @@ provider/title will always be available. No paid access or API keys were added.
 
 AudibleGeek and GeekMovie send catalog and search requests through Geekfox's
 WISP transport, rather than direct browser fetch calls to the API domains. The
-media transport has the same ten-connection fallback pool and is kept separate
+media transport has the same shared fallback pool and is kept separate
 from open browser tabs. API redirects are followed through the transport too.
 
 Posters, covers, and online audio use same-origin geekfox-content URLs served by
@@ -520,8 +521,10 @@ and remove that temporary copy when finished (the worker must be beside it).
 P8y requests now cancel their header deadline once headers arrive, so the same
 deadline cannot cut off a still-streaming WASM or data download. G8me requests
 allow 60 seconds for response headers; caller cancellation remains connected.
-GN Math document loading tries its alternative HTML mirrors through p8y and
-passes the selected document into the rewriter at its real source URL.
+P8y navigates the g8me iframe to its original URL through Geekfox. It no longer
+prefetches the document or assigns its HTML to srcdoc. GN CDN responses still
+have their document content type normalized inside the rewriter. Try again
+rotates GN document mirrors after a failed p8y launch.
 
 Fixed-size canvas g8mes scale up or down to fit the player while preserving the
 canvas aspect ratio. The whole frame scales together, keeping HTML overlays and
@@ -614,3 +617,44 @@ A real SVG-player import loaded a known 2048 board with score 1234. Cookie Click
 export prepared a progress JSON download link. The in-app browser's download
 testing API does not support blob downloads in embedded frames, so automatic
 file delivery there could not be verified.
+
+
+## URL-based web g8mes and November 12 connection fixes
+
+FivePlay (`https://fiveplay.lol/`) and Half-Life 2
+(`https://alexboops.github.io/half-life-2-port/`) appear in the GN library and
+home catalog. Both use Geekfox URL-based iframes by default. No third-party
+g8me HTML, WASM, archives or artwork is packaged into the repository or SVG.
+Their browser runtime will naturally request its resources when played. The
+extra entries remain available while the GN catalog loads or is unreachable.
+Existing direct GN Math and Lumin behavior is preserved.
+
+All p8y g8me launches navigate a Geekfox frame rather than prefetching HTML.
+A healthy g8me connection is reused instead of resetting the connection on
+every title. Connection status and worker-registration failures are visible;
+a failed top-level page keeps the error overlay instead of a load event hiding
+it. GET/HEAD relay fallback, streaming-body support and non-replayed POSTs remain.
+
+The two external ports require cross-origin isolation for shared-memory WASM.
+Their first launch registers the companion worker and reloads the dashboard
+with an internal `gb-threaded=1` flag, then resumes the selected iframe. The
+worker supplies COOP/COEP policies for that dashboard navigation and rewritten
+content; iframe permissions allow isolation. Closing the player removes this
+mode and reloads the normal dashboard, so ordinary provider embeds keep their
+usual environment. A session guard prevents reload loops on unsupported browsers.
+Keep/purge **both** index.svg and geekfox-worker.js when deploying this change.
+
+Verification: 33 tests passed. The five new relays each fetched example.org
+successfully through the real transport. A GN 2048 p8y iframe loaded directly
+from its URL and responded to arrow keys (score increased). Half-Life 2 loaded
+its start screen and began fetching runtime modules. FivePlay loaded its page
+and archives after isolation was enabled, but its WASM engine then reported
+`RuntimeError: unreachable`; full gameplay of either large port is not certified.
+School Chromebook policy, blocked relay hosts/WebSockets, browser memory and
+GPU/engine requirements can still prevent these externally hosted titles from
+running. No school device or network was available for verification.
+
+Backend provenance: Achroma's published app code at
+`https://cdn.jsdelivr.net/gh/achroma-ubg/svg@latest/achroma.js` (checked November 12,
+2026); the removed demo's restrictions are at `https://wisp.mercurywork.shop/`.
+Third-party availability can change and these hosts may share infrastructure.
