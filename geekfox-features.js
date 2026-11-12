@@ -23,6 +23,19 @@ export function geekfoxShouldBlock(filterEngine,Request,details,allowlist=[]) {
     if(!['http:','https:'].includes(target.protocol)||type==='main_frame'||allowlist.includes(source.hostname))return false;
     return !!filterEngine.match(Request.fromRawDetails({url:target.href,sourceUrl:source.href,type:type||'other'})).match;
 }
+let sharedGeekfoxBlocker=null;
+export function loadGeekfoxBlocker() {
+    if(!sharedGeekfoxBlocker)sharedGeekfoxBlocker=(async()=>{
+    const [codeResponse,listResponse]=await Promise.all([fetch(new URL(geekfoxBlockerModule,document.baseURI)),fetch(new URL(geekfoxFilterList,document.baseURI))]);
+    if(!codeResponse.ok||!listResponse.ok)throw new Error('Bundled filtering assets could not load.');
+    const [code,text]=await Promise.all([codeResponse,listResponse].map(response=>new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).text()));
+    const moduleURL=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
+    let module;try{module=await import(moduleURL);}finally{URL.revokeObjectURL(moduleURL);}
+    return {engine:module.FiltersEngine.parse(text,{loadNetworkFilters:true,loadCosmeticFilters:true}),Request:module.Request};
+
+    })().catch(error=>{sharedGeekfoxBlocker=null;throw error;});
+    return sharedGeekfoxBlocker;
+}
 export function initializeGeekfoxFeatures({read,write,frames,reload,fetchThroughGeekfox}) {
     const $=id=>document.getElementById(id),key='gbGeekfoxFeaturesV1',saved=read(key,{});
     const state={blocker:saved?.blocker===true,dislikes:saved?.dislikes===true,allow:Array.isArray(saved?.allow)?saved.allow.filter(host=>typeof host==='string'&&/^[a-z0-9.-]+$/.test(host)).slice(0,100):[]};
@@ -42,12 +55,7 @@ export function initializeGeekfoxFeatures({read,write,frames,reload,fetchThrough
         if(!loading)loading=(async()=>{
             $('geekfox-blocker-status').textContent='Loading the bundled blocker and filter lists…';
             try {
-                const [codeResponse,listResponse]=await Promise.all([fetch(new URL(geekfoxBlockerModule,document.baseURI)),fetch(new URL(geekfoxFilterList,document.baseURI))]);
-                if(!codeResponse.ok||!listResponse.ok)throw new Error('Bundled filtering assets could not load.');
-                const [code,text]=await Promise.all([codeResponse,listResponse].map(response=>new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).text()));
-                const moduleURL=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
-                let module;try{module=await import(moduleURL);}finally{URL.revokeObjectURL(moduleURL);}
-                engine=module.FiltersEngine.parse(text,{loadNetworkFilters:true,loadCosmeticFilters:true});Request=module.Request;
+                ({engine,Request}=await loadGeekfoxBlocker());
                 paint();
             }catch(error){$('geekfox-blocker-status').textContent='Blocker unavailable: '+error.message;throw error;}
             finally{loading=null;}

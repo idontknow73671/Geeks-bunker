@@ -494,8 +494,9 @@ uBlock needs a background page and privileged blocking APIs; the current RYD
 package also needs a background script. Imported packages retain the documented
 compatibility checks.
 
-Filtering is limited to Geekfox pages and subrequests; it does not cover YourGeek,
-media, g8me players, other browser tabs, or the whole device. It does not execute
+The Geekfox switch controls browsing tabs. The g8me player now has its own
+independent blocker switch using the same bundled filter engine (see below).
+Neither switch filters unrelated browser tabs or the whole device. It does not execute
 uBlock scriptlets, perform dynamic filtering, or reliably remove YouTube video
 ads. One YouTube video ad remained visible during testing. Filter lists are a
 bundled snapshot, not an automatic update subscription. The snapshot's provenance
@@ -658,3 +659,32 @@ Backend provenance: Achroma's published app code at
 `https://cdn.jsdelivr.net/gh/achroma-ubg/svg@latest/achroma.js` (checked November 12,
 2026); the removed demo's restrictions are at `https://wisp.mercurywork.shop/`.
 Third-party availability can change and these hosts may share infrastructure.
+
+
+## G8me ad and popup protection
+
+**Ad blocker: On** is the player default, independent of the Geekfox browsing
+setting. Its preference persists; changing it reloads the active title. P8y
+requests use the shared bundled Ghostery engine and EasyList/EasyPrivacy snapshot
+before the relay fetch. Top-level game documents remain allowed. Direct GN
+launches filter listed script/frame/image/style resources before startup and
+intercept common fetch/XHR and Node insertion paths. The existing bundled
+engine is parsed once and shared rather than downloaded or embedded twice.
+
+Enabled g8me iframes disallow popups, popup escapes and top-page navigation.
+Direct GN documents also replace window.open and intercept new-window links
+before title scripts run. Scripts, same-origin storage, forms, pointer lock,
+fullscreen and downloads remain available. The parent site's export/import
+controls are outside these restrictions. Turn blocking off for a title that
+requires an external login window.
+
+Direct cross-origin providers such as Lumin get popup restrictions; full network
+filtering requires p8y. Direct filtering cannot intercept every possible browser
+resource path or nested third-party request. No scriptlet or universal video-ad
+blocking claim is made. Filter snapshot provenance/licenses remain in vendor.
+
+Verification: 35 tests passed. A browser fixture removed an analytics script,
+reported Popup blocked after a user-initiated window.open attempt, and still
+responded to normal scoring controls. GN 2048 loaded its saved board in direct
+mode with the blocker on. P8y 2048 loaded with a blocked-request count, and DOM
+inspection confirmed that its sandbox popup restrictions remained in place.

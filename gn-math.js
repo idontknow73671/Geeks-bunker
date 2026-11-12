@@ -1,3 +1,4 @@
+import { createG8meGuard, g8meFrameSandbox } from "./g8me-guard.js";
 import { captureG8meBackup, validateG8meBackup, restoreG8meBackup } from "./g8me-backups.js";
 import { initializeG8meAutoClicker } from "./g8me-autoclicker.js";
 import { attachG8meDisplay } from "./g8me-display.js";
@@ -95,6 +96,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
     displayButton.addEventListener('click',()=>{displayPanel.classList.toggle('hidden');displayButton.setAttribute('aria-expanded',String(!displayPanel.classList.contains('hidden')));});
     displayPanel.addEventListener('submit',event=>{event.preventDefault();if(!displayPanel.reportValidity())return;displaySettings={stretch:displayStretch.checked};if(resolution.value!=='auto')Object.assign(displaySettings,{width:Math.round(Number(displayWidth.value)),height:Math.round(Number(displayHeight.value))});try{localStorage.setItem('gb-g8me-display',JSON.stringify(displaySettings));}catch{}host.dispatchEvent(new Event('g8me-display-change'));});
     const autoClicker=initializeG8meAutoClicker({host,player});
+    const g8meGuard=createG8meGuard({button:document.getElementById('gn-adblock-btn'),status:document.getElementById('gn-adblock-status'),reload:()=>{if(activeGame)openGame(activeGame,null,activeP8y);}});
     let source = 'gn';
     let catalogGeneration = 0;
     const catalogs = new Map();
@@ -278,11 +280,14 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         if (wasClosed) onOpen();
         close.focus();
         requestAnimationFrame(rebuildButtons);
+        await g8meGuard.prepare(viaP8y||game.provider==='gn');
+        if(current!==generation||request.signal.aborted)return;
         let frameFailed=false;
         const mountFrame = (value, isDocument) => {
             if (current !== generation || request.signal.aborted) return;
             const frame = document.createElement('iframe');
             frame.id = 'gn-game-frame'; frame.title = displayName;
+            frame.setAttribute('sandbox',g8meFrameSandbox(g8meGuard.enabled));
             frame.allow = 'autoplay; fullscreen; gamepad; clipboard-write; cross-origin-isolated';frame.tabIndex=0; frame.allowFullscreen = true;
             stopClicker=autoClicker.attach(frame);
             stopDisplay=attachG8meDisplay(frame,host,()=>displaySettings);
@@ -327,7 +332,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
                 if(current!==generation||request.signal.aborted)return;
                 stopRuntimeStatus=runtime.subscribe?.(state=>{if(current===generation&&!message.classList.contains('hidden'))status.textContent=state.text;});
                 const frame=mountFrame(url,false);
-                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){frameFailed=true;clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{mainDocumentURL:url,prepareDocumentURL:game.provider==='gn'?url:null,prepareDocument:html=>gameDocument(html,url)});
+                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){frameFailed=true;clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{filterRequest:g8meGuard.filterRequest,mainDocumentURL:url,prepareDocumentURL:game.provider==='gn'?url:null,prepareDocument:html=>gameDocument(html,url)});
                 activeHandle.go(url);return;
             } catch(error) {if(current===generation){status.textContent='P8y launch failed: '+error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}return;}
         }
@@ -342,7 +347,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         for (const url of game.urls) {
             try {
                 const html = withG8meSaves(gameDocument(await fetchWithTimeout(url, {signal:request.signal,timeout:60000}),url),game);
-                mountFrame(html,true); return;
+                mountFrame(g8meGuard.protectHTML(html,url),true); return;
             } catch (error) {
                 if (current !== generation || request.signal.aborted) return;
                 console.warn('Game source unavailable:',url,error.message);
