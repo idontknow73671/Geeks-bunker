@@ -52,6 +52,8 @@ def build():
     gn_import = 'import { initializeGnMath } from "./gn-math.js";'
     if script.count(gn_import) != 1:
         raise SystemExit('Expected one initializeGnMath import in script.js.')
+    startup = (ROOT / 'g8me-startup.js').read_text(encoding='utf-8').replace('export function ', 'function ')
+    gn_math = gn_math.replace('import { watchG8meStartup, isFivePlayLoader, prepareFivePlayLoader } from "./g8me-startup.js";', startup)
     guard = (ROOT / 'g8me-guard.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('import { loadGeekfoxBlocker, geekfoxShouldBlock } from "./geekfox-features.js";', '')
     gn_math = gn_math.replace('import { createG8meGuard, g8meFrameSandbox } from "./g8me-guard.js";', guard)
     backups = (ROOT / 'g8me-backups.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('export async function ', 'async function ')

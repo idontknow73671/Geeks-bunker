@@ -236,6 +236,17 @@
                     // Early responses stop matching requests before the relay fetch happens.
                     try {if(options.filterRequest({url,sourceUrl:lastURL,type}))details.earlyResponse=new Response(null,{status:204});}catch{}
                 });
+                if(options.transformScript)plugin.tap(frame.hooks.fetch.preresponse,async(context,details)=>{
+                    const response=details.response,url=context.parsed.url.href;
+                    if(response.status<200||response.status>=300||!options.transformScript.matches(url))return;
+                    try{
+                        const script=await options.transformScript.prepare(await response.text(),url);
+                        const headers=new Headers(response.rawHeaders);headers.set('Content-Type','application/javascript');
+                        for(const name of ['content-length','content-encoding','content-disposition'])headers.delete(name);
+                        const replacement=new Response(script,{status:response.status,statusText:response.statusText,headers});
+                        details.response=typeof response.constructor.fromNativeResponse==='function'?response.constructor.fromNativeResponse(replacement):Object.assign(replacement,{rawHeaders:[...headers]});
+                    }catch(error){callbacks.error?.(error);throw error;}
+                });
                 if(options.mainDocumentURL||options.prepareDocumentURL)plugin.tap(frame.hooks.fetch.preresponse,async(context,details)=>{
                     const response=details.response;
                     if(context.parsed.url.href!==(options.mainDocumentURL||options.prepareDocumentURL))return;

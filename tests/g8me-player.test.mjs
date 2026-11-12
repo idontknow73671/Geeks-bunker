@@ -1,3 +1,4 @@
+import {g8meStartupFailure} from '../g8me-startup.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -27,7 +28,7 @@ test('caller cancellation still aborts an active body download',async()=>{
 });
 test('external titles retain original URLs, omit tracking and always launch through p8y',async()=>{
  const titles=extraG8mes();assert.deepEqual(titles.map(g=>g.name),['FivePlay','Half-Life 2']);
- assert.deepEqual(await Promise.all(titles.map(g=>g8meP8yURL(g))),['https://fiveplay.lol/','https://alexboops.github.io/half-life-2-port/']);
+ assert.deepEqual(await Promise.all(titles.map(g=>g8meP8yURL(g))),['https://fiveplay.lol/?low=1&cores=2&res=910x570&fps=30','https://alexboops.github.io/half-life-2-port/']);
  assert.ok(titles.every(g=>g.viaP8y&&g.provider==='web'));
 });
 test('p8y URL selection needs no document fetch and keeps Lumin resolution separate',async()=>{
@@ -63,3 +64,6 @@ test('stretch uses independent axes while aspect fit keeps uniform scale',()=>{
 });
 
 test('a blocked connectivity host does not reject a relay that can fetch other pages',async()=>{let checks=0;const net=network(async url=>{assert.equal(url.href,'https://example.org/');checks++;return {status:200,body:null};},async()=>({status:403,body:null}));await net.adapter.init();assert.equal(checks,1);assert.ok(net.origin.includes('nightwisp'));});
+
+test('FivePlay uses its published low-memory startup settings',async()=>{const url=new URL(await g8meP8yURL(extraG8mes()[0]));assert.equal(url.searchParams.get('low'),'1');assert.equal(url.searchParams.get('cores'),'2');assert.equal(url.searchParams.get('res'),'910x570');assert.equal(url.searchParams.get('fps'),'30');assert.equal(url.searchParams.has('log'),false);});
+test('only a confirmed engine crash becomes a startup failure',()=>{assert.match(g8meStartupFailure('The game stopped (rejection): THREAD REJECTION: unreachable'),/unreachable/);for(const text of ['Mounting archives','Game data: 612 MB','No progress for 90 s: device may be out of memory','Low-memory device: close other tabs','Choose Story Mode or Sandbox Mode to continue'])assert.equal(g8meStartupFailure(text),null);});

@@ -1,3 +1,4 @@
+import { watchG8meStartup, isFivePlayLoader, prepareFivePlayLoader } from "./g8me-startup.js";
 import { createG8meGuard, g8meFrameSandbox } from "./g8me-guard.js";
 import { captureG8meBackup, validateG8meBackup, restoreG8meBackup } from "./g8me-backups.js";
 import { initializeG8meAutoClicker } from "./g8me-autoclicker.js";
@@ -58,7 +59,7 @@ function gameDocument(html, url) {
 
 export function extraG8mes() {
     return [
-        {id:'fiveplay',name:'FivePlay',provider:'web',art:'5',viaP8y:true,threaded:true,urls:['https://fiveplay.lol/']},
+        {id:'fiveplay',name:'FivePlay',provider:'web',art:'5',viaP8y:true,threaded:true,urls:['https://fiveplay.lol/?low=1&cores=2&res=910x570&fps=30']},
         {id:'half-life-2',name:'Half-Life 2',provider:'web',art:'λ²',viaP8y:true,threaded:true,urls:['https://alexboops.github.io/half-life-2-port/']}
     ];
 }
@@ -107,7 +108,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
     let activeRequest = null;
     let generation = 0;
     let returnFocus = null;
-    let closing = false, activeHandle=null, activeP8y=false, launchTimer=null,g8meRuntime=null,g8mePreference=null,activeMirror=0,stopRuntimeStatus=null,stopDisplay=null,stopClicker=null;
+    let closing = false, activeHandle=null, activeP8y=false, launchTimer=null,g8meRuntime=null,g8mePreference=null,activeMirror=0,stopRuntimeStatus=null,stopDisplay=null,stopClicker=null,stopStartupMonitor=null;
     const p8yLaunch=document.getElementById('gn-p8y-btn');
     const sound = playSound;
     const exitFullscreenOnEscape = event => {
@@ -267,7 +268,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         if (current !== generation || request.signal.aborted) return;
         activeGame = game;
         if(progressDownloadURL){URL.revokeObjectURL(progressDownloadURL);progressDownloadURL=null;}progressDownload.classList.add('hidden');progressDownload.removeAttribute('href');progressStatus.textContent='';
-        activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;stopClicker?.();stopClicker=null;clearTimeout(launchTimer);activeP8y=viaP8y;activeMirror=mirror;stopRuntimeStatus?.();stopRuntimeStatus=null;
+        activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;stopClicker?.();stopClicker=null;stopStartupMonitor?.();stopStartupMonitor=null;clearTimeout(launchTimer);activeP8y=viaP8y;activeMirror=mirror;stopRuntimeStatus?.();stopRuntimeStatus=null;
         p8yLaunch.textContent=game.viaP8y?'Reconnect p8y':viaP8y?'Use direct launch':'Launch through p8y';
         host.replaceChildren();
         saveStatus.textContent = viaP8y ? (game.threaded&&window.parent.crossOriginIsolated?'P8y · Threaded mode ready · Separate save storage':'P8y mode · Separate browser save storage') : game.provider === 'lumin' ? 'Provider-managed saves' : 'Preparing autosave…';
@@ -289,6 +290,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
             frame.id = 'gn-game-frame'; frame.title = displayName;
             frame.setAttribute('sandbox',g8meFrameSandbox(g8meGuard.enabled));
             frame.allow = 'autoplay; fullscreen; gamepad; clipboard-write; cross-origin-isolated';frame.tabIndex=0; frame.allowFullscreen = true;
+            if(game.id==='fiveplay')stopStartupMonitor=watchG8meStartup(frame,failure=>{if(current!==generation)return;frameFailed=true;clearTimeout(launchTimer);status.textContent='FivePlay could not finish starting. '+failure;retry.classList.remove('hidden');message.classList.remove('hidden');});
             stopClicker=autoClicker.attach(frame);
             stopDisplay=attachG8meDisplay(frame,host,()=>displaySettings);
             frame.addEventListener('load', () => {
@@ -324,7 +326,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
                 const runtime=g8meRuntime;
                 if(game.threaded&&!window.parent.crossOriginIsolated){
                     const key='gbThreadedG8meReload';
-                    if(sessionStorage.getItem(key)===String(game.id))throw Error('This browser could not enable cross-origin isolation for this threaded g8me. Its page can load, but its engine needs that capability.');
+                    if(new URL(window.parent.location.href).searchParams.get('gb-threaded')==='1'&&sessionStorage.getItem(key)===String(game.id))throw Error('This browser could not enable cross-origin isolation for this threaded g8me. Its page can load, but its engine needs that capability.');
                     sessionStorage.setItem(key,String(game.id));sessionStorage.setItem('gbResumeP8yG8me',String(game.id));
                     status.textContent='Enabling threaded g8me support. Reloading once…';await runtime.reloadIsolated();return;
                 }
@@ -332,7 +334,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
                 if(current!==generation||request.signal.aborted)return;
                 stopRuntimeStatus=runtime.subscribe?.(state=>{if(current===generation&&!message.classList.contains('hidden'))status.textContent=state.text;});
                 const frame=mountFrame(url,false);
-                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){frameFailed=true;clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{filterRequest:g8meGuard.filterRequest,mainDocumentURL:url,prepareDocumentURL:game.provider==='gn'?url:null,prepareDocument:html=>gameDocument(html,url)});
+                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){frameFailed=true;clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{filterRequest:g8meGuard.filterRequest,transformScript:game.id==='fiveplay'?{matches:isFivePlayLoader,prepare:prepareFivePlayLoader}:null,mainDocumentURL:url,prepareDocumentURL:game.provider==='gn'?url:null,prepareDocument:html=>gameDocument(html,url)});
                 activeHandle.go(url);return;
             } catch(error) {if(current===generation){status.textContent='P8y launch failed: '+error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}return;}
         }
@@ -367,7 +369,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         ++generation;
         activeRequest?.abort();
         if (await flushG8meFrame(host.querySelector('iframe')) === false) { closing = false; close.disabled = false; return; }
-        activeGame = null;activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;stopClicker?.();stopClicker=null;stopRuntimeStatus?.();stopRuntimeStatus=null;clearTimeout(launchTimer);
+        activeGame = null;activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;stopClicker?.();stopClicker=null;stopStartupMonitor?.();stopStartupMonitor=null;stopRuntimeStatus?.();stopRuntimeStatus=null;clearTimeout(launchTimer);
         // Removing the iframe stops its scripts, audio, timers, and network activity.
         host.replaceChildren();
         if (document.fullscreenElement === player) await document.exitFullscreen().catch(() => {});
@@ -377,6 +379,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         closing = false;
         close.disabled = false;
         returnFocus?.focus({ preventScroll: true });
+        try{sessionStorage.removeItem('gbResumeP8yG8me');sessionStorage.removeItem('gbThreadedG8meReload');}catch{}
         (window.parent.GeekfoxEngine||window.GeekfoxEngine)?.leaveG8meIsolation?.();
     }
 
@@ -401,7 +404,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
             const data=JSON.parse(await file.text());const rollback=await captureG8meBackup(host.querySelector('iframe'),game,true);
             validateG8meBackup(data,game,rollback.databases.map(db=>db.name));
             if(!window.confirm('Replace saved progress for '+game.name+' with this file? The g8me will restart. Export your current progress first if you want to keep it.'))return;
-            activeRequest?.abort();++generation;activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;stopClicker?.();stopClicker=null;clearTimeout(launchTimer);host.replaceChildren();removed=true;
+            activeRequest?.abort();++generation;activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;stopClicker?.();stopClicker=null;stopStartupMonitor?.();stopStartupMonitor=null;clearTimeout(launchTimer);host.replaceChildren();removed=true;
             await restoreG8meBackup(data,game,rollback);await openGame(game,null,mode);progressStatus.textContent='Progress imported · G8me restarted.';
         }catch(error){if(removed)await openGame(game,null,mode);progressStatus.textContent='Import failed: '+error.message;}finally{progressBusy(false);}
     });
@@ -421,7 +424,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
     });
     loadCatalog();
     {
-        try{const pending=sessionStorage.getItem('gbResumeP8yG8me');if(pending){sessionStorage.removeItem('gbResumeP8yG8me');const game=extraG8mes().find(game=>String(game.id)===pending);if(game)openGame(game,null,true);}}catch{}
+        try{const pending=sessionStorage.getItem('gbResumeP8yG8me');if(pending){sessionStorage.removeItem('gbResumeP8yG8me');const game=extraG8mes().find(game=>String(game.id)===pending);if(game&&new URL(window.parent.location.href).searchParams.get('gb-threaded')==='1')openGame(game,null,true);}}catch{}
     }
     return { launch: openGame, setSource, getG8mes: () => g8mes };
 }

@@ -688,3 +688,32 @@ reported Popup blocked after a user-initiated window.open attempt, and still
 responded to normal scoring controls. GN 2048 loaded its saved board in direct
 mode with the blocker on. P8y 2048 loaded with a blocked-request count, and DOM
 inspection confirmed that its sandbox popup restrictions remained in place.
+
+
+### FivePlay archive-mount compatibility
+
+FivePlay now defaults to its published low-memory profile (`low=1`, two cores,
+910×570 rendering, 30 fps). This reduces thread/graphics pressure but does not
+by itself solve the archive failure.
+
+The confirmed failure was its main engine's synchronous XMLHttpRequest for
+`/data/manifest.json`. The bundled Geekfox runtime defaults to disabling sync
+XHR, so the engine reported the existing `x64/audio/audio.rpf` archive missing
+and trapped in `CFileMgr::MountAudioPacks`. A narrowly matched worker-response
+adapter now preloads the manifest with asynchronous fetch before starting the
+engine. It populates FivePlay's existing `__httpfsManifest` cache; its IO workers
+still stream the archives normally. Neither archives nor g8me code are bundled
+locally. No global sync-XHR flag or game-progress modification is involved.
+
+Confirmed crashes now produce a retry message rather than leaving only the
+stale mounting screen. Slow transfers and mode-selection prompts are not treated
+as crashes. Isolation resume markers are cleared on close and only resume a
+title on the threaded dashboard URL, preventing stale markers from reopening
+it on the normal dashboard.
+
+Verification: the original low-memory site reached its mode-selection stage;
+the unpatched Geekfox frame crashed mounting audio packs. Crash diagnostics
+identified the missing manifest. With the adapter, Geekfox passed archive
+mounting, loaded Story Mode and rendered the playable 3D scene with ad blocking
+enabled. The original mounting failure is fixed in the local browser test. Unit tests check preload order,
+manifest validation, URL scoping, idempotence and changed-loader failure.

@@ -39,3 +39,5 @@ test('unavailable and malformed counts are errors, never invented numbers',async
  for(const dislikes of [undefined,null,'100',-1])await assert.rejects(()=>fetchGeekfoxDislikes(async()=>new Response(JSON.stringify({dislikes})),'dQw4w9WgXcQ'),/did not provide/);
  await assert.rejects(()=>fetchGeekfoxDislikes(()=>{throw new Error('must not fetch');},'invalid'),/Invalid/);
 });
+
+test('FivePlay manifest, archives and loader are not mistaken for ads',()=>{for(const path of ['/data/manifest.json','/data/x64/audio/audio.rpf','/data/batch','/b/build/loader.js'])assert.equal(geekfoxShouldBlock(engine,Request,{url:'https://fiveplay.lol'+path,sourceUrl:'https://fiveplay.lol/',type:path.endsWith('.js')?'script':'xmlhttprequest'}),false);});
