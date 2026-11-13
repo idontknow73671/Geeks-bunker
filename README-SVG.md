@@ -760,3 +760,26 @@ the player and reopening Geometry Dash, Saved Levels retained Flatline at 5%
 and 20/500 orbs. Custom music was skipped for this gameplay test. 51 automated
 tests passed, including relative-runtime URLs, streamed downloads and stable
 local/native save identity.
+
+### G8me developer menu
+
+Open Developer in the g8me toolbar and enable Capture logs. Capture defaults off;
+changing it reloads the title through the existing save-flush path. The panel
+provides console levels, uncaught errors, rejected promises, fetch/XHR status and
+timing, launch mode/viewport and p8y relay startup messages. Filter by level or
+text, pause the display, clear entries, export a text log, or reload the title.
+Only the latest 300 entries remain in this tab, with bounded object formatting
+and message rate. Existing console methods still run. Network diagnostics omit
+query strings, request bodies and headers; title-authored console messages may
+contain their own data, so review exports before sharing.
+
+Direct GN and selected p8y documents receive capture before title scripts.
+Accessible frames reconnect to a host callback on load. External cross-origin
+frames may prevent capture; workers and nested frames are not instrumented. The
+panel reports whether capture connected rather than promising full DevTools.
+No save keys, database names or restore logic change.
+
+Verified developer capture with GN 2048 in direct and p8y mode. A browser fixture
+produced console log/warn/error messages, a rejected promise and a 404 fetch;
+text filtering isolated the requested entry. P8y relay startup and capture
+connection appeared in the real SVG player. 58 automated tests passed.

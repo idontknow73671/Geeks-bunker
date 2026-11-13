@@ -575,3 +575,14 @@ html { scrollbar-gutter:stable; }
 
 .gn-player-toolbar h2 {min-width:95px;}
 #gn-adblock-status {font-size:11px;max-width:230px;line-height:1.4;color:var(--muted);}
+
+#gn-developer-panel {background:rgba(15,18,24,.78);backdrop-filter:blur(24px);border-bottom:1px solid var(--line);padding:12px 16px;min-height:180px;max-height:45vh;overflow:auto;font-size:12px;}
+.gn-dev-controls {display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.gn-dev-controls label {display:flex;gap:6px;align-items:center;}
+.gn-dev-controls input,.gn-dev-controls select {margin:0;padding:6px;}
+.gn-dev-controls input[type=search] {width:170px;}
+.gn-dev-controls .button {padding:7px 10px;}
+#gn-developer-panel p {margin:8px 0;}
+.gn-dev-note {color:var(--muted);}
+#gn-developer-panel pre {height:170px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:rgba(0,0,0,.3);padding:10px;font:12px/1.5 ui-monospace,monospace;user-select:text;}
+#gn-game-player:has(#gn-developer-panel:not(.hidden)) .gn-player-stage {min-height:0;flex:1;}

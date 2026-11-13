@@ -1,3 +1,4 @@
+import { createG8meDeveloper, withG8meDeveloper } from "./g8me-developer.js";
 import { resolveGdNetworkURL, gdNetworkRoutes, withGdNetwork } from "./g8me-network.js";
 import { watchG8meStartup, isFivePlayLoader, prepareFivePlayLoader } from "./g8me-startup.js";
 import { createG8meGuard, g8meFrameSandbox } from "./g8me-guard.js";
@@ -102,6 +103,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         throw new Error('The level services are unavailable.');
     };
 
+    const developer=createG8meDeveloper({button:document.getElementById('gn-developer-btn'),panel:document.getElementById('gn-developer-panel'),reload:()=>{if(activeGame)openGame(activeGame,null,activeP8y,activeMirror);}});
     const displayPanel=document.getElementById('gn-display-controls'),displayButton=document.getElementById('gn-display-btn');
     const resolution=document.getElementById('gn-resolution'),displayWidth=document.getElementById('gn-display-width'),displayHeight=document.getElementById('gn-display-height'),displayStretch=document.getElementById('gn-display-stretch');
     let displaySettings={};
@@ -289,6 +291,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         if (await flushG8meFrame(host.querySelector('iframe')) === false) return;
         if (current !== generation || request.signal.aborted) return;
         activeGame = game;
+        developer.reset(game,viaP8y?'p8y':'direct');
         if(progressDownloadURL){URL.revokeObjectURL(progressDownloadURL);progressDownloadURL=null;}progressDownload.classList.add('hidden');progressDownload.removeAttribute('href');progressStatus.textContent='';
         activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;stopClicker?.();stopClicker=null;stopStartupMonitor?.();stopStartupMonitor=null;clearTimeout(launchTimer);activeP8y=viaP8y;activeMirror=mirror;stopRuntimeStatus?.();stopRuntimeStatus=null;
         p8yLaunch.textContent=game.viaP8y?'Reconnect p8y':viaP8y?'Use direct launch':'Launch through p8y';
@@ -309,6 +312,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         const mountFrame = (value, isDocument) => {
             if (current !== generation || request.signal.aborted) return;
             const frame = document.createElement('iframe');
+            developer.attach(frame);
             frame.id = 'gn-game-frame'; frame.title = displayName;
             frame.setAttribute('sandbox',g8meFrameSandbox(g8meGuard.enabled));
             frame.allow = 'autoplay; fullscreen; gamepad; clipboard-write; cross-origin-isolated';frame.tabIndex=0; frame.allowFullscreen = true;
@@ -341,7 +345,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
                 const engine=window.parent.GeekfoxEngine||window.GeekfoxEngine;
                 status.textContent='Connecting to a p8y relay…';
                 if(!engine)throw new Error('The browsing engine is missing. Rebuild index.svg.');
-                const report=text=>{if(current===generation)status.textContent=text;};
+                const report=text=>{if(current===generation){status.textContent=text;if(developer.enabled)developer.record('system',text);}};
                 if(g8meRuntime){if(g8mePreference!==engine.preference)await g8meRuntime.changeConnection(engine.preference);}
                 else g8meRuntime=await engine.startG8mes(report);
                 g8mePreference=engine.preference;
@@ -356,7 +360,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
                 if(current!==generation||request.signal.aborted)return;
                 stopRuntimeStatus=runtime.subscribe?.(state=>{if(current===generation&&!message.classList.contains('hidden'))status.textContent=state.text;});
                 const frame=mountFrame(url,false);
-                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){frameFailed=true;clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{filterRequest:g8meGuard.filterRequest,transformScript:game.id==='fiveplay'?{matches:isFivePlayLoader,prepare:prepareFivePlayLoader}:null,mainDocumentURL:url,prepareDocumentURL:game.provider==='gn'?url:null,prepareDocument:html=>withGdNetwork(gameDocument(html,url),game)});
+                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){frameFailed=true;clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{filterRequest:g8meGuard.filterRequest,transformScript:game.id==='fiveplay'?{matches:isFivePlayLoader,prepare:prepareFivePlayLoader}:null,mainDocumentURL:url,prepareDocumentURL:developer.enabled||game.provider==='gn'?url:null,prepareDocument:html=>withG8meDeveloper(game.provider==='gn'?withGdNetwork(gameDocument(html,url),game):html,developer.enabled)});
                 activeHandle.go(url);return;
             } catch(error) {if(current===generation){status.textContent='P8y launch failed: '+error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}return;}
         }
@@ -371,7 +375,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         for (const url of game.urls) {
             try {
                 const html = withG8meSaves(withGdNetwork(gameDocument(await fetchWithTimeout(url, {signal:request.signal,timeout:60000}),url),game),game);
-                mountFrame(g8meGuard.protectHTML(html,url),true); return;
+                mountFrame(withG8meDeveloper(g8meGuard.protectHTML(html,url),developer.enabled),true); return;
             } catch (error) {
                 if (current !== generation || request.signal.aborted) return;
                 console.warn('Game source unavailable:',url,error.message);
