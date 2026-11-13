@@ -201,14 +201,18 @@
         }
         let resourceFrame=null;
         return {
-            async fetch(url, {signal} = {}) {
+            async fetch(url, {signal, method='GET', body=null, headers:requestHeaders={}} = {}) {
+                method=String(method).toUpperCase();
+                const outgoingHeaders=[...new Headers(requestHeaders).entries()];
                 let target=new URL(url);
                 for(let redirects=0;redirects<=8;redirects++) {
                     if(target.protocol!=='https:')throw new Error('Media requests require HTTPS.');
-                    const result=await transport.request(target,'GET',null,[],signal);
+                    const result=await transport.request(target,method,body,outgoingHeaders,signal);
                     const headers=new Headers(result.headers);
                     if([301,302,303,307,308].includes(result.status)&&headers.has('location')) {
-                        await result.body?.cancel();target=new URL(headers.get('location'),target);continue;
+                        await result.body?.cancel();
+                        if(result.status===303 || ([301,302].includes(result.status)&&method==='POST')) {method='GET';body=null;for(let i=outgoingHeaders.length-1;i>=0;i--)if(/^content-/i.test(outgoingHeaders[i][0]))outgoingHeaders.splice(i,1);}
+                        target=new URL(headers.get('location'),target);continue;
                     }
                     return new Response([204,205,304].includes(result.status)?null:result.body,{status:result.status,statusText:result.statusText,headers});
                 }

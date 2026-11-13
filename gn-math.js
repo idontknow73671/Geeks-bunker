@@ -1,3 +1,4 @@
+import { resolveGdNetworkURL, gdNetworkRoutes, withGdNetwork } from "./g8me-network.js";
 import { watchG8meStartup, isFivePlayLoader, prepareFivePlayLoader } from "./g8me-startup.js";
 import { createG8meGuard, g8meFrameSandbox } from "./g8me-guard.js";
 import { captureG8meBackup, validateG8meBackup, restoreG8meBackup } from "./g8me-backups.js";
@@ -5,18 +6,17 @@ import { initializeG8meAutoClicker } from "./g8me-autoclicker.js";
 import { attachG8meDisplay } from "./g8me-display.js";
 import { loadLuminCatalog, loadLuminCover, resolveLuminGame } from "./lumin.js";
 import { withG8meSaves, flushG8meFrame } from "./g8me-saves.js";
-// GN Math integration using the same catalog mirror and fetch-to-iframe approach
-// as the supplied Opium reference. Lumin remains a separate selectable provider.
+// Prefer the publisher; keep CDN mirrors as fallbacks without changing save IDs.
 const SOURCES = [
-    {
-        catalog: 'https://cdn.jsdelivr.net/gh/freebuisness/assets@main/zones.json',
-        html: 'https://cdn.jsdelivr.net/gh/freebuisness/html@main/',
-        covers: 'https://cdn.jsdelivr.net/gh/freebuisness/covers@main/'
-    },
     {
         catalog: 'https://raw.githubusercontent.com/gn-math/assets/main/zones.json',
         html: 'https://raw.githubusercontent.com/gn-math/html/main/',
         covers: 'https://raw.githubusercontent.com/gn-math/covers/main/'
+    },
+    {
+        catalog: 'https://cdn.jsdelivr.net/gh/freebuisness/assets@main/zones.json',
+        html: 'https://cdn.jsdelivr.net/gh/freebuisness/html@main/',
+        covers: 'https://cdn.jsdelivr.net/gh/freebuisness/covers@main/'
     }
 ];
 const PAGE_SIZE = 60;
@@ -28,7 +28,7 @@ async function fetchWithTimeout(url, options = {}) {
     else options.signal?.addEventListener('abort', abort, { once: true });
     const timer = setTimeout(abort, options.timeout || 20000);
     try {
-        const response = await fetch(url, { signal: timeout.signal });
+        const response = await fetch(url, { signal: timeout.signal, cache: 'no-cache' });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         // Consume the body before clearing the timeout, including large g8mes.
         return await response.text();
@@ -64,7 +64,8 @@ export function extraG8mes() {
     ];
 }
 export async function g8meP8yURL(game,resolveLumin=resolveLuminGame,mirror=0) {
-    const url=game.provider==='lumin'?await resolveLumin(game.id):game.urls?.[mirror%game.urls.length];
+    const urls=game.p8yUrls || game.urls;
+    const url=game.provider==='lumin'?await resolveLumin(game.id):urls?.[mirror%urls.length];
     const target=new URL(url);if(target.protocol!=='https:')throw Error('This g8me needs a valid HTTPS address.');return target.href;
 }
 
@@ -84,6 +85,22 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
     const fullscreen = document.getElementById('gn-fullscreen-btn');
     const saveStatus = document.getElementById('gn-save-status');
     if (!grid || !player) return;
+    window.__gbGdNetworkFetch = async (url, options) => {
+        const target = resolveGdNetworkURL(url);
+        if (!target) throw new Error('Unsupported level service.');
+        const engine = window.parent.GeekfoxEngine || window.GeekfoxEngine;
+        if (!engine) throw new Error('Geekfox is unavailable.');
+        const runtime = await engine.startG8mes();
+        for (const route of [...gdNetworkRoutes(target),target]) {
+            options.signal?.throwIfAborted();
+            try {
+                const response=await runtime.fetch(route,options);
+                if(response.ok && !/^\s*(?:<!doctype|<html|<head|<body)/i.test(await response.clone().text())) return response;
+                await response.body?.cancel();
+            } catch(error) { if(options.signal?.aborted) throw error; }
+        }
+        throw new Error('The level services are unavailable.');
+    };
 
     const displayPanel=document.getElementById('gn-display-controls'),displayButton=document.getElementById('gn-display-btn');
     const resolution=document.getElementById('gn-resolution'),displayWidth=document.getElementById('gn-display-width'),displayHeight=document.getElementById('gn-display-height'),displayStretch=document.getElementById('gn-display-stretch');
@@ -207,7 +224,12 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
                     const coverPath = typeof game.cover === 'string' && game.cover.startsWith('{COVER_URL}/') ? game.cover.slice('{COVER_URL}/'.length) : `${game.id}.png`;
                     return {
                         id: game.id, name: game.name, provider: 'gn',
-                        urls: [...new Set([new URL(path, endpoint.html).href,
+                        // P8y saves belong to the virtual origin. Retain its old
+                        // source order even when direct mode prefers official HTML.
+                        p8yUrls: [`https://cdn.jsdelivr.net/gh/freebuisness/html@main/${path}`,
+                            `https://raw.githubusercontent.com/freebuisness/html/main/${path}`,
+                            `https://raw.githubusercontent.com/gn-math/html/main/${path}`],
+                        urls: [...new Set([new URL(path, endpoint.html).href, ...SOURCES.map(source => new URL(path, source.html).href),
                             `https://raw.githubusercontent.com/freebuisness/html/main/${path}`,
                             `https://raw.githubusercontent.com/gn-math/html/main/${path}`])],
                         cover: new URL(coverPath, endpoint.covers).href,
@@ -334,7 +356,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
                 if(current!==generation||request.signal.aborted)return;
                 stopRuntimeStatus=runtime.subscribe?.(state=>{if(current===generation&&!message.classList.contains('hidden'))status.textContent=state.text;});
                 const frame=mountFrame(url,false);
-                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){frameFailed=true;clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{filterRequest:g8meGuard.filterRequest,transformScript:game.id==='fiveplay'?{matches:isFivePlayLoader,prepare:prepareFivePlayLoader}:null,mainDocumentURL:url,prepareDocumentURL:game.provider==='gn'?url:null,prepareDocument:html=>gameDocument(html,url)});
+                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){frameFailed=true;clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{filterRequest:g8meGuard.filterRequest,transformScript:game.id==='fiveplay'?{matches:isFivePlayLoader,prepare:prepareFivePlayLoader}:null,mainDocumentURL:url,prepareDocumentURL:game.provider==='gn'?url:null,prepareDocument:html=>withGdNetwork(gameDocument(html,url),game)});
                 activeHandle.go(url);return;
             } catch(error) {if(current===generation){status.textContent='P8y launch failed: '+error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}return;}
         }
@@ -348,7 +370,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         }
         for (const url of game.urls) {
             try {
-                const html = withG8meSaves(gameDocument(await fetchWithTimeout(url, {signal:request.signal,timeout:60000}),url),game);
+                const html = withG8meSaves(withGdNetwork(gameDocument(await fetchWithTimeout(url, {signal:request.signal,timeout:60000}),url),game),game);
                 mountFrame(g8meGuard.protectHTML(html,url),true); return;
             } catch (error) {
                 if (current !== generation || request.signal.aborted) return;
@@ -385,7 +407,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
 
     search.addEventListener('input', filterG8mes);
     more.addEventListener('click', () => { sound(); appendG8mes(); });
-    catalogRetry.addEventListener('click', loadCatalog);
+    catalogRetry.addEventListener('click', () => { catalogs.delete(source); loadCatalog(); });
     retry.addEventListener('click', () => { if (activeGame) openGame(activeGame,null,activeP8y,activeP8y?activeMirror+1:0); });
     const exportProgress=document.getElementById('gn-export-progress'),importProgress=document.getElementById('gn-import-progress'),progressFile=document.getElementById('gn-progress-file'),progressStatus=document.getElementById('gn-progress-status'),progressDownload=document.getElementById('gn-progress-download');
     let progressDownloadURL=null;

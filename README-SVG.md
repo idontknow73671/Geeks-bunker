@@ -717,3 +717,46 @@ identified the missing manifest. With the adapter, Geekfox passed archive
 mounting, loaded Story Mode and rendered the playable 3D scene with ad blocking
 enabled. The original mounting failure is fixed in the local browser test. Unit tests check preload order,
 manifest validation, URL scoping, idempotence and changed-loader failure.
+
+### GN source updates and Geometry Dash uploaded levels
+
+GN catalogs and wrappers now prefer the official repository and revalidate HTTP
+caches; the CDN mirror remains a fallback. Catalog Retry also discards the
+in-memory catalog. Entries continue to use their provider and numeric ID, never
+a source URL or revision, as their save identity. P8y keeps its previous mirror
+order and virtual origins because its browser storage belongs to those origins;
+changing the direct source priority must not move existing P8y saves.
+
+Geometry Dash's public wrapper is the same in the official repository and the
+mirror. Its first online-level bridge returned HTTP 429; other early bridges
+returned 403, which the upstream fallback logic can treat as a final response.
+The WASM runtime emits `/__proxy?url=...` relative URLs. The port resolves those
+against `location.href`, which is `about:srcdoc` in the embedded player, so its
+normal route parser fails and the request reaches the wrong host. The ID 868
+adapter now unwraps that actual runtime URL and tries the working published
+IXL/SNG level routes first,
+preserving POST bytes. If direct access fails it can use Geekfox's existing
+transport, then fall back to the port's own networking. Each attempt has a
+bounded timeout, and HTML error pages are rejected. Level bodies stream as soon
+as the first chunk arrives, so the native inactivity timer sees download progress.
+Custom song/SFX hosts keep their published n/c media routes. Both launch modes receive
+the adapter; other titles and asset requests are untouched.
+
+This is a network update, not a new WASM payload. It keeps `gn:868`, the
+`gbG8meSave:gn:868:` storage prefix, `gdwasm_saves` and its existing version,
+and the AppData/Resources path compatibility hook. It does not clear, replace,
+rename or migrate any player's database. Existing progress export/import stays
+available. As before, storage belongs to the browser and site origin: use the
+same site URL/launch mode, and do not clear site data when refreshing.
+
+Use `gd-network-check.html` on the same server for a public level-list and
+level-download check without touching any saves. Automated tests exercise route
+fallback, POST forwarding, unrelated-title isolation and reopening existing
+progress through the updated wrapper. Live service availability remains external.
+
+Verified in the rebuilt SVG: Featured populated with real player-created levels;
+Flatline downloaded (1,217,922 bytes), launched, and reached 5%. After closing
+the player and reopening Geometry Dash, Saved Levels retained Flatline at 5%
+and 20/500 orbs. Custom music was skipped for this gameplay test. 51 automated
+tests passed, including relative-runtime URLs, streamed downloads and stable
+local/native save identity.
