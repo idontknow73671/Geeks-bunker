@@ -48,6 +48,9 @@ def build():
     script = script.replace('import { initializeGeekfox } from "./geekfox.js";', geekfox)
     html = html.replace('<script src="geekfox-engine.js"></script>', '')
     engine = (ROOT / 'geekfox-engine.js').read_text(encoding='utf-8')
+    worker_version = re.search(r"const isolationVersion='([a-z0-9-]+)'", engine).group(1)
+    worker_filename = f'geekfox-worker-{worker_version}.js'
+    (ROOT / worker_filename).write_bytes((ROOT / 'geekfox-worker.js').read_bytes())
     gn_math = (ROOT / 'gn-math.js').read_text(encoding='utf-8')
     gn_import = 'import { initializeGnMath } from "./gn-math.js";'
     if script.count(gn_import) != 1:
@@ -174,7 +177,7 @@ __GEEKFOX_ENGINE__
     if size > 20_000_000:
         raise SystemExit('SVG exceeds the conservative 20 MB jsDelivr GitHub file limit.')
     print(f'Built {output.name}: {size:,} bytes')
-    print(f'Bundled wallpapers, PS4 audio, GN Math, Lumin, and {len(catalog):,} website links. Geekfox also needs geekfox-worker.js beside index.svg.')
+    print(f'Bundled wallpapers, PS4 audio, GN Math, Lumin, and {len(catalog):,} website links. Geekfox also needs {worker_filename} beside index.svg.')
 
 
 if __name__ == '__main__':

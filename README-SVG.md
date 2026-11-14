@@ -1,5 +1,10 @@
 # Geeks Bunker — Dark Liquid Glass edition
 
+Current build: publish `index.svg` and generated `geekfox-worker-corp-v2.js`.
+`build-svg.py` generates that worker from `geekfox-worker.js`. Keep the unversioned
+worker for older cached builds. The versioned filename avoids stale CDN copies.
+
+
 The Minecraft interface has been replaced by a modern console dashboard with
 horizontal navigation, a game row, quick-access tiles, and your supplied artwork.
 The current finish uses dark translucent materials, backdrop blur and saturation,

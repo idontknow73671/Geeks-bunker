@@ -1,6 +1,6 @@
 /* The engine lives in the outer document so its worker has an HTTPS page URL. */
 (() => {
-    const isolationVersion='corp-v1';
+    const isolationVersion='corp-v2';
     const assets = 'https://cdn.jsdelivr.net/gh/lucideproxy/svg@8b35ef07ef9788b060a78fbb504112e28e134b1d/';
     // Additional providers identified from their published CDN deployments.
     const connections = [
@@ -157,8 +157,8 @@
         onStatus('Starting the browsing engine…');
         const base = new URL('.', location.href);
         let registration;
-        try{registration=await navigator.serviceWorker.register(new URL('geekfox-worker.js?gb-worker='+isolationVersion,base),{scope:base.pathname,updateViaCache:'none'});}
-        catch(error){throw new Error('The p8y worker could not register. Keep geekfox-worker.js beside index.svg; this browser may also restrict workers. '+error.message);}
+        try{registration=await navigator.serviceWorker.register(new URL('geekfox-worker-'+isolationVersion+'.js',base),{scope:base.pathname,updateViaCache:'none'});}
+        catch(error){throw new Error('The p8y worker could not register. Keep the generated versioned Geekfox worker beside index.svg; this browser may also restrict workers. '+error.message);}
         const worker = await timeout(new Promise((resolve, reject) => {
             const candidate = registration.installing || registration.waiting || registration.active;
             if (!candidate) return reject(new Error('The Geekfox worker could not start.'));
@@ -167,7 +167,7 @@
                 if (candidate.state === 'redundant') reject(new Error('The Geekfox worker could not be installed.'));
             };
             candidate.addEventListener('statechange', check); check();
-        }), 15000, 'The Geekfox worker did not activate. Publish geekfox-worker.js beside index.svg.');
+        }), 15000, 'The Geekfox worker did not activate. Publish the generated versioned Geekfox worker beside index.svg.');
         await loadScript('2izar/ypk98g.js');
         await loadScript('dfkw6/jusz03.js');
         // Separate module instances keep media and browser connection settings independent.
