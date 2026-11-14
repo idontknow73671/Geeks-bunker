@@ -85,6 +85,19 @@ export function prepareHalfLife2Document(html) {
     html=html.replace(/return combined\.buffer;\s*\}\)\(\);/,`return combined.buffer;
         })().catch(error=>{delete g_chunkAssembly[baseName];throw error;}).finally(()=>{gbHl2ActiveTransfers.delete(baseName);if(!gbHl2ActiveTransfers.size)gbHl2Transfer('');});`);
     html=html.replace(bootstrap, 'const wasmBytes = await gbHl2BootstrapBytes();');
+    html=html.replace('const origFetch = window.fetch.bind(window);',`const gbHl2NativeFetch = window.fetch.bind(window);
+      const origFetch = async function(input,init) {
+        const path=typeof input==='string'?input:input.url;
+        if(typeof window.__gbHl2Asset==='function' && /\\.data(?:\\.part[0-9]+)?(?:[?#]|$)/.test(path) && (!init?.method||init.method.toUpperCase()==='GET')) {
+          const asset=await window.__gbHl2Asset(path);
+          if(asset.status<200||asset.status>=300)throw Error('HL2 map transfer returned HTTP '+asset.status+' for '+path);
+          if(!asset.bytes.byteLength)throw Error('HL2 map transfer was empty: '+path);
+          if(/^\\s*(?:<!doctype|<html)/i.test(new TextDecoder().decode(asset.bytes.subarray(0,128))))throw Error('HL2 map transfer returned an HTML error page: '+path);
+          return new Response(asset.bytes,{status:asset.status,statusText:asset.statusText,headers:asset.headers});
+        }
+        return gbHl2NativeFetch(input,init);
+      };`);
+    html=html.replace("(err && err.stack) ? err.stack", "(err && err.stack) ? (err.message && !String(err.stack).includes(err.message) ? err.message + String.fromCharCode(10) + err.stack : err.stack)");
     html=html.replace(swallowed,"showCrash(e); return new Response(String(e.message||e), {status:502,statusText:'Map transfer failed'});");
     return html;
 }

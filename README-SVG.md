@@ -820,3 +820,11 @@ loaded, rendered the G-Man introduction, and reached the playable train scene
 inside the Geekfox iframe. This is
 startup/initial chapter verification, not a complete campaign test. 68 automated
 tests passed, including request-pipeline response delivery and recovery cases.
+
+November 14 follow-up: a user screenshot located the next failure in `loadMap`.
+The same host transport bridge now handles both ordinary `.data` maps and split
+parts, preserving their original URLs. Previously only bootstrap WASM used that
+bridge. Map HTTP failures, empty responses and HTML error pages now include a
+specific message. Error rendering also includes `Error.message` when a Safari-style
+stack contains only the function location. 70 automated tests pass, including
+both map paths and the Safari-style stack case. Save storage is unchanged.

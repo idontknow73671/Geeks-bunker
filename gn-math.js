@@ -328,6 +328,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
                     if(game.id==='half-life-2' && g8meRuntime) {
                         // Keep the iframe's origin and saves; only bootstrap bytes
                         // bypass the rewritten fetch layer that can reject WASM.
+                        frame.contentWindow.__gbHl2Asset=path=>fetchHalfLife2Asset(g8meRuntime,path,value,request.signal);
                         frame.contentWindow.__gbHl2Bootstrap=async()=>{
                             const asset=await fetchHalfLife2Asset(g8meRuntime,'index.wasm',value,request.signal);
                             if(asset.status!==200)throw Error('HL2 engine returned HTTP '+asset.status);
