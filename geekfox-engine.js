@@ -1,5 +1,6 @@
 /* The engine lives in the outer document so its worker has an HTTPS page URL. */
 (() => {
+    const isolationVersion='corp-v1';
     const assets = 'https://cdn.jsdelivr.net/gh/lucideproxy/svg@8b35ef07ef9788b060a78fbb504112e28e134b1d/';
     // Additional providers identified from their published CDN deployments.
     const connections = [
@@ -156,7 +157,7 @@
         onStatus('Starting the browsing engine…');
         const base = new URL('.', location.href);
         let registration;
-        try{registration=await navigator.serviceWorker.register(new URL('geekfox-worker.js',base),{scope:base.pathname,updateViaCache:'none'});}
+        try{registration=await navigator.serviceWorker.register(new URL('geekfox-worker.js?gb-worker='+isolationVersion,base),{scope:base.pathname,updateViaCache:'none'});}
         catch(error){throw new Error('The p8y worker could not register. Keep geekfox-worker.js beside index.svg; this browser may also restrict workers. '+error.message);}
         const worker = await timeout(new Promise((resolve, reject) => {
             const candidate = registration.installing || registration.waiting || registration.active;
@@ -300,8 +301,15 @@
                 };
             },
             async reloadIsolated() {
-                if(!navigator.serviceWorker.controller)await timeout(new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true})),5000,'This browser did not allow the p8y worker to control the page.');
-                const target=new URL(location.href);target.searchParams.set('gb-threaded','1');location.replace(target.href);
+                let cleanup=()=>{};
+                try {
+                    await timeout(new Promise(resolve=>{
+                        const check=()=>{if(navigator.serviceWorker.controller?.scriptURL===worker.scriptURL){cleanup();resolve();}};
+                        cleanup=()=>navigator.serviceWorker.removeEventListener('controllerchange',check);
+                        navigator.serviceWorker.addEventListener('controllerchange',check);check();
+                    }),10000,'The updated p8y worker could not take control. This browser may restrict service workers.');
+                } finally {cleanup();}
+                const target=new URL(location.href);target.searchParams.set('gb-threaded','1');target.searchParams.set('gb-isolation',isolationVersion);location.replace(target.href);
             },
             get origin() { return network.origin; },
             subscribe:network.subscribe,
@@ -310,8 +318,9 @@
     }
     let mediaBoot=null,g8meBoot=null;
     window.GeekfoxEngine = {
+        isolationVersion,
         get preference() { return savedConnection(); },
-        leaveG8meIsolation(){const target=new URL(location.href);if(target.searchParams.has('gb-threaded')){target.searchParams.delete('gb-threaded');location.replace(target.href);}},
+        leaveG8meIsolation(){const target=new URL(location.href);if(target.searchParams.has('gb-threaded')){target.searchParams.delete('gb-threaded');target.searchParams.delete('gb-isolation');location.replace(target.href);}},
         connections:connections.map(({id,label}) => ({id,label})),
         startG8mes(onStatus=()=>{}) {
             if(!g8meBoot)g8meBoot=initialize(onStatus,'g8mes').catch(error=>{g8meBoot=null;throw error;});

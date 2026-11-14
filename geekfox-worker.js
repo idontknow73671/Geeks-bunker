@@ -8,7 +8,7 @@ function isolatedResponse(response) {
     if(response.status===0)return response;
     const headers=new Headers(response.headers);
     headers.set('Cross-Origin-Opener-Policy','same-origin');
-    headers.set('Cross-Origin-Embedder-Policy','credentialless');
+    headers.set('Cross-Origin-Embedder-Policy','require-corp');
     headers.set('Cross-Origin-Resource-Policy','cross-origin');
     return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
 }
@@ -16,7 +16,7 @@ self.addEventListener('fetch', event => {
     const address=new URL(event.request.url);
     if(address.origin!==self.location.origin)return;
     if(event.request.mode==='navigate' && address.searchParams.get('gb-threaded')==='1' && /\/(?:index\.svg|index\.html)$/.test(address.pathname)) {
-        event.respondWith(fetch(event.request).then(isolatedResponse));return;
+        event.respondWith(fetch(event.request,{cache:'reload'}).then(isolatedResponse));return;
     }
     if (!address.pathname.startsWith(contentPath)) return;
     event.respondWith((async () => {

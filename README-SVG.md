@@ -828,3 +828,23 @@ bridge. Map HTTP failures, empty responses and HTML error pages now include a
 specific message. Error rendering also includes `Error.message` when a Safari-style
 stack contains only the function location. 70 automated tests pass, including
 both map paths and the Safari-style stack case. Save storage is unchanged.
+
+### Threaded isolation compatibility
+
+The companion worker now uses COEP `require-corp` with COOP `same-origin`, matching
+the original HL2 port's isolation worker. Threaded navigation revalidates the
+SVG/HTML response. Worker registration has a policy-version query so the older
+credentialless worker is replaced, and reload waits for that specific worker to
+control the page. A versioned automatic navigation also avoids cached policies.
+Failed attempts from the old version receive one new attempt; a repeated failure
+under the new version stops without looping. Neither worker replacement nor
+navigation clears site data or changes the g8me save origin.
+
+Tests cover worker policy headers, uncached navigation, stale failure markers,
+controller-change ordering and cleanup when worker control is blocked.
+
+Verified in browser: an ordinary dashboard launch installed the versioned worker,
+automatically navigated to threaded mode, reported Threaded mode ready, and ran
+HL2 to its menu under `require-corp`. 74 automated tests passed. Browser or
+embedding restrictions can still deny the capability; the final error remains
+bounded and descriptive instead of looping or pretending threads are available.

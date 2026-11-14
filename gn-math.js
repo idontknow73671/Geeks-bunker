@@ -363,8 +363,9 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
                 const runtime=g8meRuntime;
                 if(game.threaded&&!window.parent.crossOriginIsolated){
                     const key='gbThreadedG8meReload';
-                    if(new URL(window.parent.location.href).searchParams.get('gb-threaded')==='1'&&sessionStorage.getItem(key)===String(game.id))throw Error('This browser could not enable cross-origin isolation for this threaded g8me. Its page can load, but its engine needs that capability.');
-                    sessionStorage.setItem(key,String(game.id));sessionStorage.setItem('gbResumeP8yG8me',String(game.id));
+                    const isolationVersion=engine.isolationVersion||'corp-v1',attempt=String(game.id)+':'+isolationVersion;
+                    if(new URL(window.parent.location.href).searchParams.get('gb-isolation')===isolationVersion&&sessionStorage.getItem(key)===attempt)throw Error('Cross-origin isolation is still unavailable after the compatibility reload. Open this site directly in a browser that supports threaded WebAssembly and allows service workers.');
+                    sessionStorage.setItem(key,attempt);sessionStorage.setItem('gbResumeP8yG8me',String(game.id));
                     status.textContent='Enabling threaded g8me support. Reloading once…';await runtime.reloadIsolated();return;
                 }
                 const url=await g8meP8yURL(game,resolveLuminGame,mirror);
