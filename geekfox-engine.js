@@ -232,6 +232,8 @@
                 const identity = () => identities[options.getProfile?.()] || null;
                 plugin.tap(frame.hooks.fetch.request, (context,details) => {
                     applyIdentityHeaders(details.init,identity());
+                    const supplied=options.resourceResponses?.get(String(details.url));
+                    if(supplied){details.earlyResponse=supplied.clone();return;}
                     if(!options.filterRequest)return;
                     const destination=context.request.rawDestination || context.request.destination || '';
                     const url=String(details.url),isTop=url===lastURL;
@@ -294,7 +296,7 @@
                     back() { frame.back(); },
                     forward() { frame.forward(); },
                     reload() { if (lastURL) this.go(lastURL); },
-                    dispose() { disposed=true; const index = controller.frames.indexOf(frame); if (index >= 0) controller.frames.splice(index, 1); }
+                    dispose() { disposed=true; options.resourceResponses?.clear(); const index = controller.frames.indexOf(frame); if (index >= 0) controller.frames.splice(index, 1); }
                 };
             },
             async reloadIsolated() {

@@ -783,3 +783,40 @@ Verified developer capture with GN 2048 in direct and p8y mode. A browser fixtur
 produced console log/warn/error messages, a rejected promise and a 404 fetch;
 text filtering isolated the requested entry. P8y relay startup and capture
 connection appeared in the real SVG player. 58 automated tests passed.
+
+### Half-Life 2 transfer recovery
+
+HL2 still launches its original site through Geekfox; no WASM, archives or map
+files are bundled. Its scoped launcher adapter retries split-file transfers,
+checks empty/truncated/HTML responses, reports the active part in an overlay,
+and removes failed assembly promises so a retry can actually fetch again.
+A failed transfer now returns HTTP 502 and the real error rather than a zero-byte
+HTTP 200. Transfers have a 90-second per-attempt deadline. The native runtime script is left unchanged. Native crash-overlay messages
+are surfaced in the g8me player with Retry. None of these patches change the
+original URL, virtual origin or save filesystem.
+
+Automated recovery checks simulate disconnected relays, 404 fallbacks,
+truncation, error pages, exhausted retries and recovery on a later attempt.
+The adapters are restricted to this HL2 entry and its original asset origin; a
+changed upstream loader reports an adapter-update error instead of silently
+applying an unverified rewrite.
+
+A browser run also reproduced an `index.wasm` bootstrap `TypeError: Failed to
+fetch` in the rewritten fetch layer. The HL2 frame now receives a narrowly scoped
+host callback that fetches only its original `index.wasm` through Geekfox's
+transport. The launcher retries bootstrap downloads and validates the WASM magic
+before compilation. Its ordinary resource requests remain in the original
+Geekfox iframe. No origins, databases or save-file formats are changed.
+
+The small original runtime script is prepared before archive transfers start,
+then supplied as a response to its original URL through the existing Geekfox
+request pipeline. It still receives normal JavaScript rewriting. The response is
+kept in memory for that launch only; nothing is downloaded into the repository.
+
+Verification: reproduced the rewritten-fetch bootstrap failure, verified the
+repaired engine download and runtime preparation, reached the HL2 menu, and
+started Chapter 1 through the normal chapter selection. Its three-part map
+loaded, rendered the G-Man introduction, and reached the playable train scene
+inside the Geekfox iframe. This is
+startup/initial chapter verification, not a complete campaign test. 68 automated
+tests passed, including request-pipeline response delivery and recovery cases.

@@ -52,6 +52,8 @@ def build():
     gn_import = 'import { initializeGnMath } from "./gn-math.js";'
     if script.count(gn_import) != 1:
         raise SystemExit('Expected one initializeGnMath import in script.js.')
+    hl2 = (ROOT / 'hl2-startup.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('export async function ', 'async function ')
+    gn_math = gn_math.replace('import { prepareHalfLife2Document, fetchHalfLife2Asset, prepareHalfLife2RuntimeResponse } from "./hl2-startup.js";', hl2)
     developer = (ROOT / 'g8me-developer.js').read_text(encoding='utf-8').replace('export function ', 'function ')
     gn_math = gn_math.replace('import { createG8meDeveloper, withG8meDeveloper } from "./g8me-developer.js";', developer)
     network = (ROOT / 'g8me-network.js').read_text(encoding='utf-8').replace('export function ', 'function ')

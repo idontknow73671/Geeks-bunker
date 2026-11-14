@@ -27,9 +27,9 @@ export function g8meStartupFailure(text) {
     const message=String(text||'').trim();
     return /^The game stopped\s*\(/i.test(message)?message.slice(0,600):null;
 }
-export function watchG8meStartup(frame,onFailure) {
+export function watchG8meStartup(frame,onFailure,kind='fiveplay') {
     let observer=null,reported=false;
-    function loaded(){observer?.disconnect();reported=false;try{const hud=frame.contentDocument?.getElementById('hud');if(!hud)return;const check=()=>{const failure=g8meStartupFailure(hud.textContent);if(failure&&!reported){reported=true;onFailure(failure);}};observer=new MutationObserver(check);observer.observe(hud,{childList:true,subtree:true,characterData:true});check();}catch{}}
+    function loaded(){observer?.disconnect();reported=false;try{const hud=frame.contentDocument?.getElementById(kind==='half-life-2'?'crash-overlay':'hud');if(!hud)return;const check=()=>{const failure=kind==='half-life-2'?(hud.classList.contains('active')?hud.textContent.trim().slice(0,600):null):g8meStartupFailure(hud.textContent);if(failure&&!reported){reported=true;onFailure(failure);}};observer=new MutationObserver(check);observer.observe(hud,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class']});check();}catch{}}
     frame.addEventListener('load',loaded);
     return ()=>{observer?.disconnect();frame.removeEventListener('load',loaded);};
 }

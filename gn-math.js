@@ -1,3 +1,4 @@
+import { prepareHalfLife2Document, fetchHalfLife2Asset, prepareHalfLife2RuntimeResponse } from "./hl2-startup.js";
 import { createG8meDeveloper, withG8meDeveloper } from "./g8me-developer.js";
 import { resolveGdNetworkURL, gdNetworkRoutes, withGdNetwork } from "./g8me-network.js";
 import { watchG8meStartup, isFivePlayLoader, prepareFivePlayLoader } from "./g8me-startup.js";
@@ -316,7 +317,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
             frame.id = 'gn-game-frame'; frame.title = displayName;
             frame.setAttribute('sandbox',g8meFrameSandbox(g8meGuard.enabled));
             frame.allow = 'autoplay; fullscreen; gamepad; clipboard-write; cross-origin-isolated';frame.tabIndex=0; frame.allowFullscreen = true;
-            if(game.id==='fiveplay')stopStartupMonitor=watchG8meStartup(frame,failure=>{if(current!==generation)return;frameFailed=true;clearTimeout(launchTimer);status.textContent='FivePlay could not finish starting. '+failure;retry.classList.remove('hidden');message.classList.remove('hidden');});
+            if(['fiveplay','half-life-2'].includes(game.id))stopStartupMonitor=watchG8meStartup(frame,failure=>{if(current!==generation)return;frameFailed=true;clearTimeout(launchTimer);status.textContent=game.name+' could not finish starting. '+failure;retry.classList.remove('hidden');message.classList.remove('hidden');},game.id);
             stopClicker=autoClicker.attach(frame);
             stopDisplay=attachG8meDisplay(frame,host,()=>displaySettings);
             frame.addEventListener('load', () => {
@@ -324,6 +325,15 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
                 try { if(frame.contentDocument?.URL === 'about:blank')return; } catch {}
                 clearTimeout(launchTimer);
                 try {
+                    if(game.id==='half-life-2' && g8meRuntime) {
+                        // Keep the iframe's origin and saves; only bootstrap bytes
+                        // bypass the rewritten fetch layer that can reject WASM.
+                        frame.contentWindow.__gbHl2Bootstrap=async()=>{
+                            const asset=await fetchHalfLife2Asset(g8meRuntime,'index.wasm',value,request.signal);
+                            if(asset.status!==200)throw Error('HL2 engine returned HTTP '+asset.status);
+                            return asset.bytes;
+                        };
+                    }
                     const doc=frame.contentDocument;
                     if(doc && (/^Error response$|^Error processing your request$/.test(doc.title)||/^Internal Service Worker Error:|^Geekfox connection expired/.test(doc.body?.innerText?.trim()||''))) {
                         status.textContent='This connection could not load the g8me. Retry or switch launch mode.';retry.classList.remove('hidden');message.classList.remove('hidden');return;
@@ -359,8 +369,11 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
                 const url=await g8meP8yURL(game,resolveLuminGame,mirror);
                 if(current!==generation||request.signal.aborted)return;
                 stopRuntimeStatus=runtime.subscribe?.(state=>{if(current===generation&&!message.classList.contains('hidden'))status.textContent=state.text;});
+                if(game.id==='half-life-2')status.textContent='Preparing the HL2 runtime…';
+                const resourceResponses=game.id==='half-life-2'?await prepareHalfLife2RuntimeResponse(runtime,url,request.signal):null;
+                if(current!==generation||request.signal.aborted)return;
                 const frame=mountFrame(url,false);
-                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){frameFailed=true;clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{filterRequest:g8meGuard.filterRequest,transformScript:game.id==='fiveplay'?{matches:isFivePlayLoader,prepare:prepareFivePlayLoader}:null,mainDocumentURL:url,prepareDocumentURL:developer.enabled||game.provider==='gn'?url:null,prepareDocument:html=>withG8meDeveloper(game.provider==='gn'?withGdNetwork(gameDocument(html,url),game):html,developer.enabled)});
+                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){frameFailed=true;clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{resourceResponses,filterRequest:g8meGuard.filterRequest,transformScript:game.id==='fiveplay'?{matches:isFivePlayLoader,prepare:prepareFivePlayLoader}:null,mainDocumentURL:url,prepareDocumentURL:developer.enabled||game.provider==='gn'||game.id==='half-life-2'?url:null,prepareDocument:html=>withG8meDeveloper(game.provider==='gn'?withGdNetwork(gameDocument(html,url),game):game.id==='half-life-2'?prepareHalfLife2Document(html):html,developer.enabled)});
                 activeHandle.go(url);return;
             } catch(error) {if(current===generation){status.textContent='P8y launch failed: '+error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}return;}
         }
