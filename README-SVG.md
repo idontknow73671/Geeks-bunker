@@ -928,3 +928,25 @@ manual detail setting or forced jaw weights. The 19-model checks validate eye
 material mappings and unchanged non-eye bytes. This is not visual coverage of
 every NPC or map; a swapped Barney test actor did not remain in the camera view.
 The local test maps and diagnostic code are not shipped.
+
+### HL2 automatic loading slideshow (November 15, 2026)
+
+HL2 now starts its existing engine loader automatically. The terminal and extra
+START ENGINE button are replaced by the supplied loading artwork: Valve's bald
+head, Valve's eye portrait, then HL2 images 1, 2 and 3 at five-second intervals.
+The three HL2 pictures repeat if loading takes longer. Images keep their aspect
+ratio and crossfade; the existing engine-ready signal fades the entire screen
+and the supplied Hazardous Environments track over 1.2 seconds. Loading failures
+still display the original error/retry panel and stop the loading music.
+
+The complete supplied track is compressed to Opus in `audio/hl2-loading.ogg`.
+Optimized image copies live in `images/hl2-loading/`. `build-svg.py` generates
+`hl2-loading-assets.js` and embeds those assets into the SVG, so the loader needs
+no additional image/music hosts. The built SVG remains below 20 MB. A mute
+control also offers Enable loading music when browser autoplay is blocked;
+loading proceeds regardless of audio permission.
+
+Verification: 100 tests passed, including timing/order, blocked playback,
+mid-fade/end volume, timer cleanup and real-launcher integration. A local browser
+confirmed automatic startup, the Valve/artwork slideshow, successful music play
+after enabling it, and removal of the overlay into the working game menu.

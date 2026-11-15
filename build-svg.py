@@ -55,7 +55,15 @@ def build():
     gn_import = 'import { initializeGnMath } from "./gn-math.js";'
     if script.count(gn_import) != 1:
         raise SystemExit('Expected one initializeGnMath import in script.js.')
+    loading_assets = {
+        'images': ['data:image/jpeg;base64,' + base64.b64encode((ROOT / ('images/hl2-loading/' + name + '.jpg')).read_bytes()).decode('ascii') for name in ['valveguybald', 'valveguyidk', 'halflife2img1', 'halflife2img2', 'halflife2img3']],
+        'music': 'data:audio/ogg;base64,' + base64.b64encode((ROOT / 'audio/hl2-loading.ogg').read_bytes()).decode('ascii'),
+    }
+    asset_source = 'export const hl2LoadingAssets=' + json.dumps(loading_assets, separators=(',', ':')) + ';\n'
+    (ROOT / 'hl2-loading-assets.js').write_text(asset_source, encoding='utf-8')
+    loading = (ROOT / 'hl2-loading.js').read_text(encoding='utf-8').replace("import { hl2LoadingAssets } from './hl2-loading-assets.js';", asset_source.replace('export const ', 'const ')).replace('export function ', 'function ')
     hl2 = (ROOT / 'hl2-startup.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('export async function ', 'async function ')
+    hl2 = hl2.replace("import { prepareHalfLife2Loading } from './hl2-loading.js';", loading)
     native = (ROOT / 'hl2-native.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('export async function ', 'async function ')
     native_import = 'import { repairHalfLife2VertexBuffers, repairHalfLife2Client, repairHalfLife2FacialRendering, repairHalfLife2CharacterLOD, normalizeHalfLife2Model } from "./hl2-native.js";'
     if hl2.count(native_import) != 1:

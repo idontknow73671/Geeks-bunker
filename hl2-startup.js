@@ -1,3 +1,4 @@
+import { prepareHalfLife2Loading } from './hl2-loading.js';
 import { repairHalfLife2VertexBuffers, repairHalfLife2Client, repairHalfLife2FacialRendering, repairHalfLife2CharacterLOD, normalizeHalfLife2Model } from "./hl2-native.js";
 // The upstream resume handler only knows OpenAL. SDL playback can remain
 // suspended after startup or an OS/tab interruption; recover existing contexts
@@ -76,7 +77,7 @@ export async function fetchHalfLife2Asset(runtime,path,base,signal) {
     return {bytes,status:response.status,statusText:response.statusText,headers:[...headers]};
 }
 export function prepareHalfLife2Document(html) {
-    html=prepareHalfLife2Audio(html);
+    html=prepareHalfLife2Loading(prepareHalfLife2Audio(html));
     if(html.includes('gbHl2ChunkRetry'))return html;
     const start=html.indexOf('      async function fetchPart('),end=html.indexOf('      const g_chunkAssembly',start);
     const assembled='return combined.buffer;';
