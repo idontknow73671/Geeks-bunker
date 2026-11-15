@@ -50,7 +50,7 @@ export function prepareHalfLife2Loading(html) {
 #launcher-ui{padding:0;background:#000;display:block;opacity:1;transition:opacity 3s ease;overflow:hidden}
 #launcher-ui::before{display:none}
 #launcher-ui.hl2-loading-finished{opacity:0;pointer-events:none}
-.hl2-loading-picture{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .65s ease;background:#000}
+.hl2-loading-picture{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity 3s ease;background:#000}
 .hl2-loading-picture.visible{opacity:1}
 #hl2-loading-footer{position:absolute;bottom:26px;left:32px;right:32px;display:flex;justify-content:space-between;align-items:end;gap:24px;color:#eee;font:13px Arial,sans-serif;text-shadow:0 1px 4px #000}
 #progress-box{display:block;width:min(380px,65vw);margin:0}

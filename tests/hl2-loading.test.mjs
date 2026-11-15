@@ -25,7 +25,7 @@ test('blocked autoplay offers a sound button and never blocks loading; its point
 test('release launcher automatically starts with the replacement UI and retains errors and engine adapters',{skip:!process.env.HL2_ENGINE_FIXTURES},()=>{
  const input=fs.readFileSync(process.env.HL2_ENGINE_FIXTURES+'/cache/index.html','utf8'),output=prepareHalfLife2Document(input);
  assert.ok(!output.includes('CITY 17 SECTOR-4 TERMINAL'));assert.ok(!output.includes('START ENGINE'));
- assert.match(output,/window.gbHl2Loading=\(/);assert.match(output,/startApp\(\);\s*<\/script>/);assert.match(output,/gbHl2Loading\?\.finish/);assert.match(output,/gbHl2BootstrapBytes/);assert.match(output,/HL2 audio/);
+ assert.match(output,/window.gbHl2Loading=\(/);assert.match(output,/\.hl2-loading-picture\{[^}]*transition:opacity 3s ease/);assert.match(output,/startApp\(\);\s*<\/script>/);assert.match(output,/gbHl2Loading\?\.finish/);assert.match(output,/gbHl2BootstrapBytes/);assert.match(output,/HL2 audio/);
  assert.equal(prepareHalfLife2Document(output),output);
  const script=output.match(/<script type="text\/javascript">([\s\S]*?)<\/script>/)[1];new vm.Script(script);
  assert.equal(hl2LoadingAssets.images.length,5);assert.ok(hl2LoadingAssets.images.every(s=>s.startsWith('data:image/jpeg;base64,')));assert.ok(hl2LoadingAssets.music.startsWith('data:audio/ogg;base64,'));
