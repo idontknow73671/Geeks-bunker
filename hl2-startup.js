@@ -1,3 +1,34 @@
+// The upstream resume handler only knows OpenAL. SDL playback can remain
+// suspended after startup or an OS/tab interruption; recover existing contexts
+// on interaction without replacing devices, buffers, or engine code.
+export function prepareHalfLife2Audio(html) {
+    const original=`function resumeAudioStack() {
+        if (typeof AL !== 'undefined' && AL.currentCtx && AL.currentCtx.audioCtx) {
+          if (AL.currentCtx.audioCtx.state === 'suspended') {
+            AL.currentCtx.audioCtx.resume().catch(() => {});
+          }
+        }
+      }`;
+    if(!html.includes(original))return html;
+    return html.replace(original,`const gbHl2AudioPending=new WeakSet();
+      function resumeAudioStack() {
+        if(document.visibilityState==='hidden')return;
+        const contexts=new Set();
+        if(typeof Module!=='undefined')contexts.add(Module.SDL2?.audioContext);
+        if(typeof AL!=='undefined')contexts.add(AL.currentCtx?.audioCtx);
+        for(const context of contexts) {
+          if(!context||!['suspended','interrupted'].includes(context.state)||gbHl2AudioPending.has(context))continue;
+          gbHl2AudioPending.add(context);
+          try {
+            Promise.resolve(context.resume()).catch(error=>console.warn('[HL2 audio] Resume failed:',error.message)).finally(()=>gbHl2AudioPending.delete(context));
+          }catch(error){gbHl2AudioPending.delete(context);console.warn('[HL2 audio] Resume failed:',error.message);}
+        }
+      }
+      window.addEventListener('pointerdown',resumeAudioStack,true);
+      window.addEventListener('keydown',resumeAudioStack,true);
+      window.addEventListener('focus',resumeAudioStack);
+      document.addEventListener('visibilitychange',resumeAudioStack);`);
+}
 export async function prepareHalfLife2RuntimeResponse(runtime,base,signal) {
     const scriptURL=new URL('index.js',base).href;let lastError;
     for(let attempt=0;attempt<3;attempt++) {
@@ -25,6 +56,7 @@ export async function fetchHalfLife2Asset(runtime,path,base,signal) {
     return {bytes,status:response.status,statusText:response.statusText,headers:[...headers]};
 }
 export function prepareHalfLife2Document(html) {
+    html=prepareHalfLife2Audio(html);
     if(html.includes('gbHl2ChunkRetry'))return html;
     const start=html.indexOf('      async function fetchPart('),end=html.indexOf('      const g_chunkAssembly',start);
     const assembled='return combined.buffer;';

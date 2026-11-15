@@ -853,3 +853,24 @@ automatically navigated to threaded mode, reported Threaded mode ready, and ran
 HL2 to its menu under `require-corp`. 74 automated tests passed. Browser or
 embedding restrictions can still deny the capability; the final error remains
 bounded and descriptive instead of looping or pretending threads are available.
+
+### HL2 animation rollback and audio recovery (November 14, 2026)
+
+The experimental eye-renderer and facial-client binary patches were removed
+following reports of worse rendering and intermittent sound. Native function
+counts and changing weights were insufficient evidence of correct visuals.
+HL2 now uses the upstream renderer/client unchanged. Eye/lip animation remains
+unresolved; do not describe this rollback as an animation fix.
+
+The launcher audio adapter now resumes the existing `Module.SDL2.audioContext`
+as well as OpenAL after interaction or a visible-tab/focus return. It handles
+`suspended` and `interrupted`, avoids duplicate pending resume calls, and retries
+on later interaction if the browser rejects a resume. It does not recreate audio
+devices or change mixer buffers, binaries, asset URLs, or save storage.
+
+Verified with the actual upstream engine in a local browser: SDL output had
+nonzero samples (peak 0.0984); deliberately suspending its audio context stopped
+it; the next interaction restored `running`, its audio clock advanced, and the
+processing callback count advanced from 125 to 162. This verifies suspended
+context recovery, not every possible cause of missing sound. 79 automated tests
+passed, including rejection/retry, hidden-tab behavior, and OpenAL support.
