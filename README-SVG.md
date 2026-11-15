@@ -933,7 +933,7 @@ The local test maps and diagnostic code are not shipped.
 
 HL2 now starts its existing engine loader automatically. The terminal and extra
 START ENGINE button are replaced by the supplied loading artwork: Valve's bald
-head, Valve's eye portrait, then HL2 images 1, 2 and 3 at three-second intervals.
+head, Valve's eye portrait, then HL2 images 1, 2 and 3 in five-second cycles: one second fading in, three fully visible, then one fading out.
 The three HL2 pictures repeat if loading takes longer. Images keep their aspect
 ratio and crossfade; the existing engine-ready signal fades the entire screen
 and the supplied Hazardous Environments track over 3 seconds. Loading failures
