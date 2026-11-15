@@ -26,15 +26,15 @@ export function installHalfLife2Loading(assets) {
         index=index+1<assets.images.length?index+1:2; // Valve intros once, then HL2 artwork.
         const next=1-front;pictures[next].src=assets.images[index];
         pictures[next].classList.add('visible');pictures[front].classList.remove('visible');front=next;
-    },5000);
+    },3000);
     function finish(){
         if(ended)return;ended=true;
         clearInterval(slides);window.removeEventListener('pointerdown',gesture);window.removeEventListener('keydown',gesture);
         root.classList.add('hl2-loading-finished');
         const began=performance.now(),volume=music.volume;
-        function fade(now){music.volume=volume*Math.max(0,1-(now-began)/1200);if(now-began<1200)fadeFrame=requestAnimationFrame(fade);}
+        function fade(now){music.volume=volume*Math.max(0,1-(now-began)/3000);if(now-began<3000)fadeFrame=requestAnimationFrame(fade);}
         fadeFrame=requestAnimationFrame(fade);
-        setTimeout(()=>{cancelAnimationFrame(fadeFrame);music.pause();music.removeAttribute('src');music.load();root.style.display='none';document.getElementById('canvas')?.focus();},1200);
+        setTimeout(()=>{cancelAnimationFrame(fadeFrame);music.pause();music.removeAttribute('src');music.load();root.style.display='none';document.getElementById('canvas')?.focus();},3000);
     }
     window.addEventListener('pagehide',finish,{once:true});
     return {finish};
@@ -47,7 +47,7 @@ export function prepareHalfLife2Loading(html) {
     const dismiss=/      function dismissLauncher\(\) \{[\s\S]*?\n      \}/;
     if(!dismiss.test(html)||!html.includes('      function showCrash(err) {'))throw Error('HL2 loading-screen hooks changed');
     const style=`<style id="gbHl2LoadingScreen">
-#launcher-ui{padding:0;background:#000;display:block;opacity:1;transition:opacity 1.2s ease;overflow:hidden}
+#launcher-ui{padding:0;background:#000;display:block;opacity:1;transition:opacity 3s ease;overflow:hidden}
 #launcher-ui::before{display:none}
 #launcher-ui.hl2-loading-finished{opacity:0;pointer-events:none}
 .hl2-loading-picture{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .65s ease;background:#000}
