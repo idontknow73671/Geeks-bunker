@@ -59,11 +59,50 @@ export async function repairHalfLife2FacialRendering(bytes){
  if(hash!=='450c04059dba15523ee1fd4e9ece2d913cc7faa806ad603e3f6592f806584c0d')return {bytes,applied:false};
  return {bytes:hl2ReplaceOnce(bytes,hl2Hex('2002200841bfff03713b0124'),hl2Hex('2002200841ffff03713b0124')),applied:true};
 }
-// Resolve the two legacy v44 eye texture indices from their mesh materials.
-// Scope the adapter to this exact supplied model, preserving all animation data.
+// CModelRender::ComputeLOD applies a web-only forced NPC LOD after its normal
+// distance/r_lod/root-LOD calculation. LOD 3 omits eyes and facial flex groups.
+// Skip only that final override; retain the complete normal selection above it.
+export async function repairHalfLife2CharacterLOD(bytes){
+ const hash=await hl2Hash(bytes);
+ if(hash==='ce66700c251b099d6612c94c155d8db0545517bff7ab2c89f64d6e943387dc67')return {bytes,applied:true};
+ if(hash!=='fc0c18859a1bc0de4968c91953bccfad70112137e34ed2c2664d6d5c6e2b902b')return {bytes,applied:false};
+ const from=hl2Hex('238180808000419081b280006a28021c280230'),to=new Uint8Array(from.length).fill(0x01);
+ // i32.const -1 followed by no-ops, preserving all lengths and relocations.
+ to.set([0x41,0x7f]);
+ return {bytes:hl2ReplaceOnce(bytes,from,to),applied:true};
+}
+// Legacy models can leave eyeball.texture zero although their eye mesh uses
+// another material. Resolve it per body/model; retain explicit indices and data.
 export async function normalizeHalfLife2Model(path,blob){
- if(path!=='/hl2/models/gman_high.mdl'||blob.byteLength!==342440)return blob;
- const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',blob)),v=>v.toString(16).padStart(2,'0')).join('');
- if(hash!=='e999b8db779f3bdfd117e58ec0fc1b601b93c0508d77ec5c739a687ff18b2256')return blob;
- const output=blob.slice();output[134792]=4;output[134964]=2;return output;
+ if(!/\/models\/.*\.mdl$/i.test(path)||blob.byteLength<244)return blob;
+ const view=new DataView(blob.buffer,blob.byteOffset,blob.byteLength),changes=new Map();
+ const fits=(offset,length)=>Number.isSafeInteger(offset)&&Number.isSafeInteger(length)&&offset>=0&&length>=0&&offset<=blob.byteLength-length;
+ const int=offset=>view.getInt32(offset,true);
+ if(int(0)!==0x54534449||int(4)<44||int(4)>49||int(76)!==blob.byteLength)return blob;
+ const textures=int(204),skinRefs=int(220),materialSlots=skinRefs||textures,bodyCount=int(232),bodyOffset=int(236);
+ if(textures<1||textures>4096||skinRefs<0||skinRefs>4096||bodyCount<1||bodyCount>128||!fits(bodyOffset,bodyCount*16))return blob;
+ for(let body=0;body<bodyCount;body++) {
+  const bp=bodyOffset+body*16,modelCount=int(bp+4),models=bp+int(bp+12);
+  if(modelCount<0||modelCount>256||!fits(models,modelCount*148))return blob;
+  for(let model=0;model<modelCount;model++) {
+   const base=models+model*148,meshCount=int(base+72),meshes=base+int(base+76),eyeCount=int(base+100),eyes=base+int(base+104);
+   if(meshCount<0||meshCount>256||eyeCount<0||eyeCount>32||!fits(meshes,meshCount*116)||!fits(eyes,eyeCount*172))return blob;
+   const materials=new Map();
+   for(let mesh=0;mesh<meshCount;mesh++) {
+    const p=meshes+mesh*116;if(int(p+24)!==1)continue;
+    const eye=int(p+28),material=int(p);
+    if(eye<0||eye>=eyeCount||material<0||material>=materialSlots)return blob;
+    if(!materials.has(eye))materials.set(eye,material);
+    else if(materials.get(eye)!==material)materials.set(eye,null);
+   }
+   for(const [eye,material] of materials) {
+    const field=eyes+eye*172+52;
+    if(material!==null&&material!==0&&int(field)===0)changes.set(field,material);
+   }
+  }
+ }
+ if(!changes.size)return blob;
+ const output=blob.slice(),target=new DataView(output.buffer,output.byteOffset,output.byteLength);
+ for(const [offset,material] of changes)target.setInt32(offset,material,true);
+ return output;
 }

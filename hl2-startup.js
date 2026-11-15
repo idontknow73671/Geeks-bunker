@@ -1,4 +1,4 @@
-import { repairHalfLife2VertexBuffers, repairHalfLife2Client, repairHalfLife2FacialRendering, normalizeHalfLife2Model } from "./hl2-native.js";
+import { repairHalfLife2VertexBuffers, repairHalfLife2Client, repairHalfLife2FacialRendering, repairHalfLife2CharacterLOD, normalizeHalfLife2Model } from "./hl2-native.js";
 // The upstream resume handler only knows OpenAL. SDL playback can remain
 // suspended after startup or an OS/tab interruption; recover existing contexts
 // on interaction without replacing devices, buffers, or engine code.
@@ -40,7 +40,7 @@ export async function prepareHalfLife2RuntimeResponse(runtime,base,signal) {
             if(!script.includes('class DataLoader')||!script.includes('var Module'))throw Error('HL2 runtime response was not its engine loader');
             const resources=new Map();let preparedScript=script;
             if(script.includes('FS.writeFile(path, blob);')) {
-                const repairs=[['libtogl.so',repairHalfLife2VertexBuffers],['libclient.so',repairHalfLife2Client],['libstudiorender.so',repairHalfLife2FacialRendering]];
+                const repairs=[['libtogl.so',repairHalfLife2VertexBuffers],['libclient.so',repairHalfLife2Client],['libstudiorender.so',repairHalfLife2FacialRendering],['libengine.so',repairHalfLife2CharacterLOD]];
                 const results=await Promise.all(repairs.map(async([path,repair])=>{
                     const url=new URL(path,base).href;
                     const asset=await runtime.fetch(url,{signal:signal?AbortSignal.any([signal,AbortSignal.timeout(90000)]):AbortSignal.timeout(90000)});

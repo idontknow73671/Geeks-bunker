@@ -57,7 +57,10 @@ def build():
         raise SystemExit('Expected one initializeGnMath import in script.js.')
     hl2 = (ROOT / 'hl2-startup.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('export async function ', 'async function ')
     native = (ROOT / 'hl2-native.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('export async function ', 'async function ')
-    hl2 = hl2.replace('import { repairHalfLife2VertexBuffers, repairHalfLife2Client, repairHalfLife2FacialRendering, normalizeHalfLife2Model } from "./hl2-native.js";', native)
+    native_import = 'import { repairHalfLife2VertexBuffers, repairHalfLife2Client, repairHalfLife2FacialRendering, repairHalfLife2CharacterLOD, normalizeHalfLife2Model } from "./hl2-native.js";'
+    if hl2.count(native_import) != 1:
+        raise SystemExit('Expected one HL2 native compatibility import.')
+    hl2 = hl2.replace(native_import, native)
     gn_math = gn_math.replace('import { prepareHalfLife2Document, fetchHalfLife2Asset, prepareHalfLife2RuntimeResponse } from "./hl2-startup.js";', hl2)
     developer = (ROOT / 'g8me-developer.js').read_text(encoding='utf-8').replace('export function ', 'function ')
     gn_math = gn_math.replace('import { createG8meDeveloper, withG8meDeveloper } from "./g8me-developer.js";', developer)

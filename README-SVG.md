@@ -885,7 +885,7 @@ material-check bypass is not reinstated. See `engine-patches/README.md` for the
 exact changes and the optional real-engine tests.
 
 The adapters preserve original asset URLs and save storage, and apply the tested
-native module set together only when all three upstream hashes match. Future
+native module set together only when all four upstream hashes match. Future
 unknown builds retain their original pipeline. No game binaries or maps are
 committed. The SDL/OpenAL audio-resume adapter remains active.
 
@@ -898,3 +898,33 @@ adapters ran the normal intro and advanced into the train scene. The rebuilt
 played through the intro into the train. SDL produced nonzero output samples and
 resumed `running` after deliberate suspension and the next interaction. These
 checks do not cover every NPC, map, browser or cause of audio interruption.
+
+### HL2 character model coverage (November 15, 2026)
+
+The first model adapter only corrected G-Man's two eye-material indices. It did
+not correct the equivalent missing indices in other characters. The adapter now
+validates and parses legacy v44-v49 model headers, body parts, models and eye
+meshes, resolving each missing eye index from that model's unambiguous mesh
+material. Explicit indices and legitimate material-zero eyes are preserved.
+Malformed layouts are rejected before making a copy or changing any bytes.
+
+The port also defaults its separate `r_web_char_lod` override to `3` for human
+and story characters. These simplified meshes omit eyes and facial flex groups,
+even when `r_lod` is set to high detail. The guarded engine repair skips only
+this final override, restoring ordinary distance-based detail selection. Nearby
+characters can use their animated meshes; distant characters can still simplify.
+
+Coverage includes the 19 cached human, Barney, Breen, G-Man and Vortigaunt models,
+including multiple eyes, separate body parts and packed-archive subarray offsets.
+Only eye-material fields change; meshes, flex rules, sound files and save storage
+remain intact. The existing global native facial-rendering/client repairs remain
+in place. See the real-engine fixtures and malformed-layout tests in
+`tests/hl2-native.test.mjs`.
+
+Verification: 96 automated tests passed with the external real-engine fixtures.
+A fresh local launch using the release adapter showed the male citizen's eyes
+and visible mouth deformation during `cit_train_endline` dialogue, without any
+manual detail setting or forced jaw weights. The 19-model checks validate eye
+material mappings and unchanged non-eye bytes. This is not visual coverage of
+every NPC or map; a swapped Barney test actor did not remain in the camera view.
+The local test maps and diagnostic code are not shipped.
