@@ -874,3 +874,27 @@ it; the next interaction restored `running`, its audio clock advanced, and the
 processing callback count advanced from 125 to 162. This verifies suspended
 context recovery, not every possible cause of missing sound. 79 automated tests
 passed, including rejection/retry, hidden-tab behavior, and OpenAL support.
+
+### HL2 native eye and facial rendering repair (November 15, 2026)
+
+The rollback above is superseded by the complete repair in `hl2-native.js`.
+Investigation isolated a dynamic vertex-buffer base-offset bug, an unconditional
+renderer override that disabled facial deformation, the stubbed client weight
+callback, and two legacy G-Man eye material indices. The previous unsafe eye
+material-check bypass is not reinstated. See `engine-patches/README.md` for the
+exact changes and the optional real-engine tests.
+
+The adapters preserve original asset URLs and save storage, and apply the tested
+native module set together only when all three upstream hashes match. Future
+unknown builds retain their original pipeline. No game binaries or maps are
+committed. The SDL/OpenAL audio-resume adapter remains active.
+
+Verification: 87 automated tests passed with the external real-engine fixtures,
+including execution of the patched native offset expression and flex mask.
+A local browser confirmed G-Man's eyes, changing mouth geometry, and intact
+software-skinning geometry in a fixed-camera test scene. The complete release
+adapters ran the normal intro and advanced into the train scene. The rebuilt
+`index.svg` also launched through Geekfox's actual threaded p8y pipeline and
+played through the intro into the train. SDL produced nonzero output samples and
+resumed `running` after deliberate suspension and the next interaction. These
+checks do not cover every NPC, map, browser or cause of audio interruption.

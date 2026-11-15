@@ -1,3 +1,4 @@
+import { repairHalfLife2VertexBuffers, repairHalfLife2Client, repairHalfLife2FacialRendering, normalizeHalfLife2Model } from "./hl2-native.js";
 // The upstream resume handler only knows OpenAL. SDL playback can remain
 // suspended after startup or an OS/tab interruption; recover existing contexts
 // on interaction without replacing devices, buffers, or engine code.
@@ -37,7 +38,26 @@ export async function prepareHalfLife2RuntimeResponse(runtime,base,signal) {
             if(!response.ok)throw Error('HL2 runtime returned HTTP '+response.status);
             const script=await response.text();
             if(!script.includes('class DataLoader')||!script.includes('var Module'))throw Error('HL2 runtime response was not its engine loader');
-            return new Map([[scriptURL,new Response(script,{headers:{'Content-Type':'application/javascript'}})]]);
+            const resources=new Map();let preparedScript=script;
+            if(script.includes('FS.writeFile(path, blob);')) {
+                const repairs=[['libtogl.so',repairHalfLife2VertexBuffers],['libclient.so',repairHalfLife2Client],['libstudiorender.so',repairHalfLife2FacialRendering]];
+                const results=await Promise.all(repairs.map(async([path,repair])=>{
+                    const url=new URL(path,base).href;
+                    const asset=await runtime.fetch(url,{signal:signal?AbortSignal.any([signal,AbortSignal.timeout(90000)]):AbortSignal.timeout(90000)});
+                    if(!asset.ok)throw Error('HL2 '+path+' returned HTTP '+asset.status);
+                    const bytes=new Uint8Array(await asset.arrayBuffer());
+                    if(!WebAssembly.validate(bytes))throw Error('HL2 '+path+' download was incomplete or invalid');
+                    return {url,...await repair(bytes)};
+                }));
+                // Apply the tested set together; future upstream builds keep their
+                // complete original pipeline instead of receiving a partial fix.
+                if(results.every(result=>result.applied)) {
+                    for(const {url,bytes} of results)resources.set(url,new Response(bytes,{headers:{'Content-Type':'application/wasm'}}));
+                    preparedScript='const gbHl2NormalizeModel='+normalizeHalfLife2Model.toString()+';\n'+script.replace('FS.writeFile(path, blob);','FS.writeFile(path, await gbHl2NormalizeModel(path, blob));');
+                }else console.info('[HL2 animation] Different upstream engine build; preserving it unchanged.');
+            }
+            resources.set(scriptURL,new Response(preparedScript,{headers:{'Content-Type':'application/javascript'}}));
+            return resources;
         }catch(error){lastError=error;if(signal?.aborted)throw error;}
     }
     throw lastError||Error('HL2 runtime could not be prepared');
