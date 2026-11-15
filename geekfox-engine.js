@@ -231,10 +231,16 @@
                 const frame = controller.createFrame(element);
                 const plugin = new window._hp75rnc.Plugin('geekfox-' + frame.id);
                 const identity = () => identities[options.getProfile?.()] || null;
-                plugin.tap(frame.hooks.fetch.request, (context,details) => {
+                plugin.tap(frame.hooks.fetch.request, async (context,details) => {
                     applyIdentityHeaders(details.init,identity());
                     const supplied=options.resourceResponses?.get(String(details.url));
-                    if(supplied){details.earlyResponse=supplied.clone();return;}
+                    if(supplied){
+                        // Prepared responses originate in the dashboard's srcdoc realm.
+                        // Recreate the body here so the worker recognizes and transfers
+                        // its ReadableStream instead of attempting to clone it.
+                        details.earlyResponse=new Response(await supplied.clone().arrayBuffer(),{status:supplied.status,statusText:supplied.statusText,headers:supplied.headers});
+                        return;
+                    }
                     if(!options.filterRequest)return;
                     const destination=context.request.rawDestination || context.request.destination || '';
                     const url=String(details.url),isTop=url===lastURL;

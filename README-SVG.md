@@ -853,3 +853,47 @@ automatically navigated to threaded mode, reported Threaded mode ready, and ran
 HL2 to its menu under `require-corp`. 74 automated tests passed. Browser or
 embedding restrictions can still deny the capability; the final error remains
 bounded and descriptive instead of looping or pretending threads are available.
+
+### HL2 legacy eye meshes
+
+`hl2-startup.js` prepares the renderer at its original URL alongside the runtime.
+The known Source Engine 25 renderer rejects native v44 eyeballs in two places
+because it compares their unused `texture` field with `mesh.material`. The
+included native G-Man model leaves that field zero. The compatibility repair
+removes only those two comparisons (four WASM bytes), retaining the eye-index,
+bounds and material-variable checks. A full SHA-256 match guards the patch;
+different engine builds are delivered unchanged. No engine or g8me asset files
+are bundled, and save URLs/storage are unchanged.
+
+Run `node --test tests/hl2-renderer.integration.mjs` for the explicit network
+integration check against the pinned upstream renderer. It validates the patched
+module, unchanged imports/exports, exact byte differences and idempotence.
+
+### HL2 native facial animation
+
+The same guarded adapter restores `C_BaseFlex::SetupWeights` and its renderable
+thunk in the known `libclient.so`. Upstream replaced both with output-clearing
+stubs, leaving the native scene/viseme processing unreachable. The replacement
+links flex controllers, calls the existing global-weight update (including VCD
+scenes and WAV phonemes), then runs the existing local flex rules and delay.
+Readable replacement fragments are in `engine-patches/hl2-flex.wat`.
+
+Only those two function bodies and the code-section length change. Linking
+metadata, imports/exports, audio code, asset origins and save formats are
+unchanged. Unknown client hashes pass through untouched. The runtime still
+fetches the upstream binaries; no engine binary or content archive is bundled.
+The explicit integration command above also checks the real client, preserving
+every other code body and every non-code section byte-for-byte.
+
+Verification on November 14, 2026: 75 default tests and 3 upstream-binary
+integration tests passed. Instrumented native testing reached thousands of eye
+setup calls with changing iris vectors; restored viseme calls produced changing
+nonzero mouth flex weights during G-Man speech, then continued into the train.
+The rebuilt SVG also boots through Geekfox with the minimal binary repairs.
+This verifies startup and opening dialogue, not the full campaign. The port still
+has separate transparency/shader artifacts in the layered G-Man intro; restoring
+native eye/viseme updates does not correct that effect.
+
+Prepared binary responses are recreated in the outer document's realm before
+worker transfer. Passing a srcdoc-owned ReadableStream through unchanged caused
+a DataCloneError and a misleading HTTP 500 while loading `libclient.so`.
