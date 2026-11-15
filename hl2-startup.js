@@ -1,40 +1,3 @@
-// This upstream build incorrectly compares the unused legacy eyeball.texture field
-// with mesh.material in two places. Native v44 models leave it zero. Keep the
-// bounds/material-variable checks, but let those models reach eye setup.
-export async function repairHalfLife2Renderer(bytes) {
-    const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('');
-    if(hash==='9558d23d37b380ec6a5433c75248a84afcef53703e92aeb09410086f50c5f5bb')return {bytes,applied:true};
-    if(hash!=='450c04059dba15523ee1fd4e9ece2d913cc7faa806ad603e3f6592f806584c0d')return {bytes,applied:false};
-    const repaired=bytes.slice();
-    for(const offset of [106577,107371]) {
-        if(repaired[offset]!==0x0d||repaired[offset+1]!==0)throw Error('HL2 renderer patch does not match its expected instructions');
-        // br_if 0 -> drop; nop. Preserve code sizes, linking metadata and ABI.
-        repaired[offset]=0x1a;repaired[offset+1]=0x01;
-    }
-    return {bytes:repaired,applied:true};
-}
-// Restore C_BaseFlex::SetupWeights and its this-adjusting thunk. The upstream
-// stubs only zero the output; the existing controller, scene and viseme routines
-// remain intact. Source for these two replacement bodies: engine-patches/hl2-flex.wat.
-export async function repairHalfLife2Client(bytes) {
-    const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('');
-    if(hash==='f0b3abb8b8d7b4415ea632367ce509dfe8b8d1e0613d41789740945bed9ee3f4')return {bytes,applied:true};
-    if(hash!=='69f7b3d2722e3c3941f7a2baa72b3f663cf86d67d40467ae6a872fd531787798')return {bytes,applied:false};
-    const fromHex=hex=>Uint8Array.from(hex.match(/../g),v=>parseInt(v,16));
-    const setup=fromHex('01047f024020002d00c0100d0020002802c810210520054504402000108b0920002802c81021050b2005450d0020052802002106200628028c0241004a044020062006280290026a280208417f46044041002107034020062006280290026a200741146c6a21082008200820082802046a10b20f360208200741016a2207200628028c02480d000b0b0b2000200120022003200410cc0f04402000200120022003200410cd0f0b0b0b');
-    const thunk=fromHex('002000417c6a200120022003200410c80f0b');
-    // Only two code bodies and the code-section length change. All other bytes,
-    // including linking metadata, function indices and storage behavior, survive.
-    const replacement=new Uint8Array(2+setup.length+1+thunk.length);
-    replacement.set([0xa9,0x01]);replacement.set(setup,2);
-    replacement[2+setup.length]=thunk.length;replacement.set(thunk,3+setup.length);
-    const start=3315762,end=3315880,delta=replacement.length-(end-start);
-    const repaired=new Uint8Array(bytes.length+delta);
-    repaired.set(bytes.subarray(0,start));repaired.set(replacement,start);repaired.set(bytes.subarray(end),start+replacement.length);
-    let length=7314595+delta;
-    for(let offset=56687;offset<56691;offset++){repaired[offset]=(length&127)|(offset<56690?128:0);length>>>=7;}
-    return {bytes:repaired,applied:true};
-}
 export async function prepareHalfLife2RuntimeResponse(runtime,base,signal) {
     const scriptURL=new URL('index.js',base).href;let lastError;
     for(let attempt=0;attempt<3;attempt++) {
@@ -43,21 +6,7 @@ export async function prepareHalfLife2RuntimeResponse(runtime,base,signal) {
             if(!response.ok)throw Error('HL2 runtime returned HTTP '+response.status);
             const script=await response.text();
             if(!script.includes('class DataLoader')||!script.includes('var Module'))throw Error('HL2 runtime response was not its engine loader');
-            const rendererURL=new URL('libstudiorender.so',base).href;
-            const renderer=await runtime.fetch(rendererURL,{signal:signal?AbortSignal.any([signal,AbortSignal.timeout(90000)]):AbortSignal.timeout(90000)});
-            if(!renderer.ok)throw Error('HL2 renderer returned HTTP '+renderer.status);
-            const bytes=new Uint8Array(await renderer.arrayBuffer());
-            if(bytes.length<8||bytes[0]!==0||bytes[1]!==97||bytes[2]!==115||bytes[3]!==109)throw Error('HL2 renderer response was not WebAssembly');
-            const repaired=await repairHalfLife2Renderer(bytes);
-            console.info('[HL2 renderer] '+(repaired.applied?'Legacy eye-mesh compatibility repair ready':'Different engine build; preserving its renderer unchanged'));
-            const clientURL=new URL('libclient.so',base).href;
-            const client=await runtime.fetch(clientURL,{signal:signal?AbortSignal.any([signal,AbortSignal.timeout(90000)]):AbortSignal.timeout(90000)});
-            if(!client.ok)throw Error('HL2 client returned HTTP '+client.status);
-            const clientBytes=new Uint8Array(await client.arrayBuffer());
-            if(clientBytes.length<8||clientBytes[0]!==0||clientBytes[1]!==97||clientBytes[2]!==115||clientBytes[3]!==109)throw Error('HL2 client response was not WebAssembly');
-            const facial=await repairHalfLife2Client(clientBytes);
-            console.info('[HL2 facial animation] '+(facial.applied?'Native scene and speech updates restored':'Different engine build; preserving its client unchanged'));
-            return new Map([[scriptURL,new Response(script,{headers:{'Content-Type':'application/javascript'}})],[rendererURL,new Response(repaired.bytes,{headers:{'Content-Type':'application/wasm'}})],[clientURL,new Response(facial.bytes,{headers:{'Content-Type':'application/wasm'}})]]);
+            return new Map([[scriptURL,new Response(script,{headers:{'Content-Type':'application/javascript'}})]]);
         }catch(error){lastError=error;if(signal?.aborted)throw error;}
     }
     throw lastError||Error('HL2 runtime could not be prepared');
