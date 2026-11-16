@@ -1,12 +1,16 @@
 /* Runs before the title's scripts so storage keys stay isolated and stable. */
 function installG8meStorage(identity) {
     const prefix = 'gbG8meSave:' + identity.provider + ':' + identity.id + ':';
+    const isGeometryDash = identity.provider === 'gn' && String(identity.id) === '868';
+    if(isGeometryDash && window.__gbG8meSave?.exitOnly)return;
+    let gdNativeRequest, gdNativeAutosave, gdSaveQueued = false;
     let backing, ready = false;
     const databases = new Set();
     let flushTimer;
     const pendingWrites = new Set();
     const pendingOpens = new Set();
     let lastStorageActivity = 0;
+    let storageFailures = 0;
     let flushInFlight = null;
     const visible = key => key !== '__check__' && key !== '__cleared__' && !key.startsWith('__removed__:') && key !== '__databases__';
     const notify = (state, detail = '') => {
@@ -108,6 +112,12 @@ function installG8meStorage(identity) {
     if (window.IDBFactory) {
         const open = IDBFactory.prototype.open;
         IDBFactory.prototype.open = function(...args) {
+            if(isGeometryDash && args[0]==='gdwasm_saves' && gdSaveQueued) {
+                gdSaveQueued=false;
+                // Serialization has reached persistence. Disable the native
+                // scheduler before its next frame, without re-entering WASM.
+                Promise.resolve().then(()=>gdNativeAutosave?.(0));
+            }
             // The native port reads these files directly from /Resources, but
             // persists them with AppData keys. Restore them where it reads.
             if (identity.provider === 'gn' && String(identity.id) === '868' &&
@@ -132,6 +142,7 @@ function installG8meStorage(identity) {
             },0);
             request.addEventListener('success',complete,{once:true});
             request.addEventListener('error',() => {
+                storageFailures++;
                 notify('unavailable','A save database could not be opened.'); complete();
             },{once:true});
             return request;
@@ -148,21 +159,37 @@ function installG8meStorage(identity) {
                 pendingWrites.add(done);
                 lastStorageActivity = Date.now();
                 result.addEventListener('complete',() => { pendingWrites.delete(done); lastStorageActivity = Date.now(); checkpoint(); finish(); },{once:true});
-                result.addEventListener('abort',() => { pendingWrites.delete(done); lastStorageActivity = Date.now(); notify('unavailable','A save transaction failed.'); finish(); },{once:true});
+                result.addEventListener('abort',() => { storageFailures++;pendingWrites.delete(done); lastStorageActivity = Date.now(); notify('unavailable','A save transaction failed.'); finish(); },{once:true});
             }
             return result;
         };
     }
-    const isGeometryDash = identity.provider === 'gn' && String(identity.id) === '868';
+    function configureGdExitSaving() {
+        const module=window.Module;
+        if(!module || module.__gbExitOnlySaving || typeof module._gd_request_save!=='function')return;
+        gdNativeRequest=module._gd_request_save.bind(module);
+        gdNativeAutosave=typeof module._gd_autosave_set==='function'?module._gd_autosave_set.bind(module):null;
+        module.__gbExitOnlySaving=true;
+        // Upstream startup tries to enable this, and its timer/visibility
+        // handlers request saves too. Only the explicit flush below may do so.
+        module._gd_request_save=()=>0;
+        if(gdNativeAutosave) {
+            module._gd_autosave_set=()=>gdNativeAutosave(0);
+            gdNativeAutosave(0);
+        }
+    }
     function requestNativeSave() {
         if (!isGeometryDash || !window.__gdGameStarted || !window.Module?._gd_request_save) return false;
-        window.Module._gd_request_save();
+        configureGdExitSaving();
+        gdSaveQueued=true;
+        // The native tick gates even requested saves on this flag. Arm it for
+        // the explicit save only; the first persistence open switches it off.
+        gdNativeAutosave?.(1);
+        gdNativeRequest();
         return true;
     }
-    // Let the port schedule its own saves. Forcing another native save every
-    // three seconds interrupts active attempts with serialization/storage work.
-    // Explicit leave/export still requests a save and waits for its commit.
     async function flushNow() {
+        const failuresAtStart=storageFailures;
         if (requestNativeSave()) {
             notify('saving');
             // This native hook queues work for the next WASM game-loop frames.
@@ -181,20 +208,38 @@ function installG8meStorage(identity) {
         const started = Date.now();
         do {
             await new Promise(resolve => setTimeout(resolve,40));
-            if (!pendingOpens.size && !pendingWrites.size && Date.now() - lastStorageActivity >= 120) break;
+            if (!gdSaveQueued && !pendingOpens.size && !pendingWrites.size && Date.now() - lastStorageActivity >= 120) break;
         } while (Date.now() - started < 4000);
-        if (pendingOpens.size || pendingWrites.size) {
+        if (gdSaveQueued || pendingOpens.size || pendingWrites.size) {
             notify('unavailable','Saving is still pending. Please wait and try again.');
             return false;
         }
+        if(storageFailures!==failuresAtStart)return false;
         if (ready && flushTimer) checkpoint();
         return true;
     }
     function flush() {
-        if (!flushInFlight) flushInFlight = flushNow().finally(() => { flushInFlight = null; });
+        if (!flushInFlight) flushInFlight = flushNow().finally(() => {
+            gdNativeAutosave?.(0);gdSaveQueued=false;flushInFlight = null;
+        });
         return flushInFlight;
     }
-    window.__gbG8meSave = {flush, ready, databaseNames:()=>[...databases]};
+    window.__gbG8meSave = {flush, ready, exitOnly:isGeometryDash, databaseNames:()=>[...databases]};
+    if(isGeometryDash) {
+        let runtimeReady=window.__gdRuntimeReady;
+        Object.defineProperty(window,'__gdRuntimeReady',{configurable:true,get:()=>runtimeReady,set:value=>{
+            runtimeReady=value;if(value)configureGdExitSaving();
+        }});
+        if(runtimeReady || window.__gdGameStarted)configureGdExitSaving();
+        const leaving=()=>{void flush().catch(()=>notify('unavailable','Exit save could not finish.'));};
+        window.addEventListener?.('beforeunload',leaving);
+        window.addEventListener?.('pagehide',leaving);
+        window.addEventListener?.('message',event=>{
+            const data=event.data;
+            if(event.source!==parent || data?.type!=='gb-g8me-flush' || typeof data.request!=='string' || data.request.length>100)return;
+            void flush().then(success=>parent.postMessage({type:'gb-g8me-flushed',request:data.request,success},'*'),()=>parent.postMessage({type:'gb-g8me-flushed',request:data.request,success:false},'*'));
+        });
+    }
     if (ready) notify('ready');
 }
 
@@ -236,6 +281,9 @@ function install2048Resume() {
 }
 
 export function withG8meSaves(html, identity) {
+    if((identity.provider||'gn')==='gn' && String(identity.id)==='868') {
+        html=html.replace(/\bsetInterval\(\s*requestSave\s*,\s*(?:0x2710|10000)\s*\)/g,'void 0 /* GD saves only on explicit leave/export */');
+    }
     const data = JSON.stringify({provider:identity.provider || 'gn',id:String(identity.id),name:identity.name})
         .replace(/</g,'\\u003c').replace(/>/g,'\\u003e');
     const script = '<script>(' + installG8meStorage.toString() + ')(' + data + ');</script>';
@@ -254,13 +302,29 @@ export function withG8meSaves(html, identity) {
     return script + html;
 }
 
-export async function flushG8meFrame(frame) {
+export async function flushG8meFrame(frame,{required=false}={}) {
+    const child=frame?.contentWindow;
+    if(!child)return true;
     try {
-        const child = frame?.contentWindow;
-        if (!child?.__gbG8meSave) return true;
-        // Let titles that save on leave commit their current state first.
-        child.dispatchEvent(new child.Event('pagehide'));
-        child.dispatchEvent(new child.Event('beforeunload'));
-        return await child.__gbG8meSave.flush();
-    } catch { return true; }
+        if (!child.__gbG8meSave) {if(!required)return true;}
+        else {
+            // Let titles that save on leave commit their current state first.
+            child.dispatchEvent(new child.Event('pagehide'));
+            child.dispatchEvent(new child.Event('beforeunload'));
+            return await child.__gbG8meSave.flush();
+        }
+    } catch { if(!required)return true; }
+    // P8y frames can have a separate origin. Await a source/nonce-matched
+    // acknowledgement instead of treating inaccessible storage as saved.
+    const owner=frame.ownerDocument?.defaultView;
+    if(!owner)return false;
+    return new Promise(resolve=>{
+        const request=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
+        let timer;
+        const finish=success=>{clearTimeout(timer);owner.removeEventListener('message',receive);resolve(success);};
+        const receive=event=>{if(event.source===child && event.data?.type==='gb-g8me-flushed' && event.data.request===request)finish(event.data.success===true);};
+        owner.addEventListener('message',receive);
+        timer=setTimeout(()=>finish(false),5500);
+        try{child.postMessage({type:'gb-g8me-flush',request},'*');}catch{finish(false);}
+    });
 }

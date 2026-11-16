@@ -275,10 +275,25 @@ intact to preserve existing saves. Completed write transactions update save stat
 closing/reloading a title waits briefly for pending writes and supported FS/IDBFS
 sync. Save status reports unavailable/full storage rather than claiming success.
 
-Geometry Dash (GN Math ID 868) retains the port's own save scheduling and requests
-a native save before leaving or exporting progress. The former additional
-three-second forced-save timer was removed because it could interrupt active
-attempts with serialization/storage work. This port writes AppData/CCGameManager.dat and AppData/CCLocalLevels.dat
+Geometry Dash (GN Math ID 868) saves on explicit leave/export instead of during
+play. Its native autosave flag stays disabled, the port's ten-second save timer
+is removed, and background timer/visibility requests cannot trigger saves.
+Back to Library requests a native checkpoint and waits for its IndexedDB writes;
+failed writes keep the player open for retry. The native scheduler is armed only
+for that explicit save and disabled as soon as serialization opens its database.
+The same adapter is installed in direct and p8y launches. P8y close requests wait
+for a reply from the exact frame with a matching request nonce.
+
+Site beforeunload/pagehide events also request a save. Browser tab/site closure
+cannot await asynchronous game-loop/IndexedDB work reliably; this is best-effort,
+not a guarantee after abrupt closure or browser termination. Back to Library is
+the reliable close path. Existing checkpoints, database names and restore paths
+are preserved. A Chrome fixture using the real adapter and IndexedDB verified
+zero save requests while simulating play, one completed Library save, and the
+saved progress restored after reopening the frame. This is a persistence-adapter
+test, not a measurement of the full game's frame rate.
+
+This port writes AppData/CCGameManager.dat and AppData/CCLocalLevels.dat
 to IndexedDB but reads them directly from /Resources on startup; the adapter
 corrects those two restore paths without clearing existing records.
 Its WASM save hook queues work on the game loop: the player now

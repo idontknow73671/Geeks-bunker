@@ -118,6 +118,10 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
     let matches = [];
     let shown = 0;
     let activeGame = null;
+    const needsGdExitSave=()=>activeGame?.provider==='gn' && String(activeGame.id)==='868';
+    const saveOnSiteExit=()=>{if(needsGdExitSave())void flushG8meFrame(host.querySelector('iframe'),{required:true});};
+    window.addEventListener('beforeunload',saveOnSiteExit);
+    window.addEventListener('pagehide',saveOnSiteExit);
     let activeRequest = null;
     let generation = 0;
     let returnFocus = null;
@@ -136,7 +140,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         if (!activeGame || event.source !== frame?.contentWindow || data?.type !== 'gb-g8me-save' ||
             data.id !== String(activeGame.id) || data.provider !== activeGame.provider) return;
         saveStatus.textContent = data.state === 'saving' ? 'Saving progress…' : data.state === 'saved' ? 'Progress saved on this browser' : data.state === 'ready' ?
-            'Autosave ready' : data.detail || 'Browser storage unavailable';
+            (needsGdExitSave()?'Saves when leaving':'Autosave ready') : data.detail || 'Browser storage unavailable';
     });
 
     function updateCount() {
@@ -282,7 +286,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         const request = new AbortController();
         activeRequest = request;
         const current = ++generation;
-        if (await flushG8meFrame(host.querySelector('iframe')) === false) return;
+        if (await flushG8meFrame(host.querySelector('iframe'),{required:needsGdExitSave()}) === false) return;
         if (current !== generation || request.signal.aborted) return;
         activeGame = game;
         developer.reset(game,viaP8y?'p8y':'direct');
@@ -290,7 +294,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;stopClicker?.();stopClicker=null;stopStartupMonitor?.();stopStartupMonitor=null;clearTimeout(launchTimer);activeP8y=viaP8y;activeMirror=mirror;stopRuntimeStatus?.();stopRuntimeStatus=null;
         p8yLaunch.textContent=game.viaP8y?'Reconnect p8y':viaP8y?'Use direct launch':'Launch through p8y';
         host.replaceChildren();
-        saveStatus.textContent = viaP8y ? (game.threaded&&window.parent.crossOriginIsolated?'P8y · Threaded mode ready · Separate save storage':'P8y mode · Separate browser save storage') : game.provider === 'lumin' ? 'Provider-managed saves' : 'Preparing autosave…';
+        saveStatus.textContent = needsGdExitSave()?'Saves when leaving':viaP8y ? (game.threaded&&window.parent.crossOriginIsolated?'P8y · Threaded mode ready · Separate save storage':'P8y mode · Separate browser save storage') : game.provider === 'lumin' ? 'Provider-managed saves' : 'Preparing autosave…';
         title.textContent = displayName;
         player.classList.remove('hidden');
         document.querySelectorAll('.topbar, main, .dashboard-footer').forEach(element => { element.inert = true; });
@@ -368,7 +372,11 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
                 const resourceResponses=game.id==='half-life-2'?await prepareHalfLife2RuntimeResponse(runtime,url,request.signal):null;
                 if(current!==generation||request.signal.aborted)return;
                 const frame=mountFrame(url,false);
-                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){frameFailed=true;clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{resourceResponses,filterRequest:g8meGuard.filterRequest,transformScript:game.id==='fiveplay'?{matches:isFivePlayLoader,prepare:prepareFivePlayLoader}:null,mainDocumentURL:url,prepareDocumentURL:developer.enabled||game.provider==='gn'||game.id==='half-life-2'?url:null,prepareDocument:html=>withG8meDeveloper(game.provider==='gn'?withGdNetwork(gameDocument(html,url),game):game.id==='half-life-2'?prepareHalfLife2Document(html):html,developer.enabled)});
+                activeHandle=runtime.attach(frame,{url:()=>{},error:error=>{if(current===generation){frameFailed=true;clearTimeout(launchTimer);status.textContent=error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}}},{resourceResponses,filterRequest:g8meGuard.filterRequest,transformScript:game.id==='fiveplay'?{matches:isFivePlayLoader,prepare:prepareFivePlayLoader}:null,mainDocumentURL:url,prepareDocumentURL:developer.enabled||game.provider==='gn'||game.id==='half-life-2'?url:null,prepareDocument:html=>{
+                    let prepared=game.provider==='gn'?withGdNetwork(gameDocument(html,url),game):game.id==='half-life-2'?prepareHalfLife2Document(html):html;
+                    if(game.provider==='gn'&&String(game.id)==='868')prepared=withG8meSaves(prepared,game);
+                    return withG8meDeveloper(prepared,developer.enabled);
+                }});
                 activeHandle.go(url);return;
             } catch(error) {if(current===generation){status.textContent='P8y launch failed: '+error.message;retry.classList.remove('hidden');message.classList.remove('hidden');}return;}
         }
@@ -402,7 +410,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         sound();
         ++generation;
         activeRequest?.abort();
-        if (await flushG8meFrame(host.querySelector('iframe')) === false) { closing = false; close.disabled = false; return; }
+        if (await flushG8meFrame(host.querySelector('iframe'),{required:needsGdExitSave()}) === false) { closing = false; close.disabled = false; saveStatus.textContent='Save did not finish. Try Back to library again.'; return; }
         activeGame = null;activeHandle?.dispose();activeHandle=null;stopDisplay?.();stopDisplay=null;stopClicker?.();stopClicker=null;stopStartupMonitor?.();stopStartupMonitor=null;stopRuntimeStatus?.();stopRuntimeStatus=null;clearTimeout(launchTimer);
         // Removing the iframe stops its scripts, audio, timers, and network activity.
         host.replaceChildren();
