@@ -31,6 +31,36 @@ export function prepareHalfLife2Audio(html) {
       window.addEventListener('focus',resumeAudioStack);
       document.addEventListener('visibilitychange',resumeAudioStack);`);
 }
+export function prepareHalfLife2Persistence(html) {
+    // The upstream launcher reports success without writing IndexedDB at all.
+    return html.replace(/            if \(typeof FS !== 'undefined'\) \{\s*FS\.syncfs = \(p, cb\) => \{\s*const fn = \(typeof p === 'function'\) \? p : cb;\s*if \(fn\) setTimeout\(\(\) => fn\(null\), 0\);\s*\};\s*\}/, '            // Preserve the real FS.syncfs: native checkpoints must reach IndexedDB.');
+}
+// WebGL requires equal attachment dimensions. Source shares the backbuffer
+// depth texture with its 256px camera target, which GLES rejects at draw time.
+export function gbHl2EnsureMonitorDepth() {
+    const gl=GLctx, target=gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING);
+    if(!target||gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER)!==gl.FRAMEBUFFER_INCOMPLETE_DIMENSIONS)return;
+    const viewport=gl.getParameter(gl.VIEWPORT);
+    if(viewport[0]||viewport[1]||viewport[2]!==256||viewport[3]!==256)return;
+    const cache=gbHl2EnsureMonitorDepth.targets||=new WeakMap();
+    let depth=cache.get(target);
+    const previous=gl.getParameter(gl.RENDERBUFFER_BINDING);
+    if(!depth) {
+        depth=gl.createRenderbuffer();
+        gl.bindRenderbuffer(gl.RENDERBUFFER,depth);
+        gl.renderbufferStorage(gl.RENDERBUFFER,gl.DEPTH24_STENCIL8,256,256);
+        cache.set(target,depth);
+    }
+    gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER,gl.DEPTH_STENCIL_ATTACHMENT,gl.RENDERBUFFER,depth);
+    gl.bindRenderbuffer(gl.RENDERBUFFER,previous);
+}
+export function prepareHalfLife2Graphics(script) {
+    if(script.includes('function gbHl2EnsureMonitorDepth('))return script;
+    const clear='var _glClear = (x0) => GLctx.clear(x0);';
+    if(!script.includes(clear))return script;
+    return gbHl2EnsureMonitorDepth.toString()+'\n'+script
+        .replace(clear,'var _glClear = (x0) => { gbHl2EnsureMonitorDepth(); GLctx.clear(x0); };');
+}
 export async function prepareHalfLife2RuntimeResponse(runtime,base,signal) {
     const scriptURL=new URL('index.js',base).href;let lastError;
     for(let attempt=0;attempt<3;attempt++) {
@@ -54,7 +84,7 @@ export async function prepareHalfLife2RuntimeResponse(runtime,base,signal) {
                 // complete original pipeline instead of receiving a partial fix.
                 if(results.every(result=>result.applied)) {
                     for(const {url,bytes} of results)resources.set(url,new Response(bytes,{headers:{'Content-Type':'application/wasm'}}));
-                    preparedScript='const gbHl2NormalizeModel='+normalizeHalfLife2Model.toString()+';\n'+script.replace('FS.writeFile(path, blob);','FS.writeFile(path, await gbHl2NormalizeModel(path, blob));');
+                    preparedScript=prepareHalfLife2Graphics('const gbHl2NormalizeModel='+normalizeHalfLife2Model.toString()+';\n'+script.replace('FS.writeFile(path, blob);','FS.writeFile(path, await gbHl2NormalizeModel(path, blob));'));
                 }else console.info('[HL2 animation] Different upstream engine build; preserving it unchanged.');
             }
             resources.set(scriptURL,new Response(preparedScript,{headers:{'Content-Type':'application/javascript'}}));
@@ -77,7 +107,7 @@ export async function fetchHalfLife2Asset(runtime,path,base,signal) {
     return {bytes,status:response.status,statusText:response.statusText,headers:[...headers]};
 }
 export function prepareHalfLife2Document(html) {
-    html=prepareHalfLife2Loading(prepareHalfLife2Audio(html));
+    html=prepareHalfLife2Loading(prepareHalfLife2Audio(prepareHalfLife2Persistence(html)));
     if(html.includes('gbHl2ChunkRetry'))return html;
     const start=html.indexOf('      async function fetchPart('),end=html.indexOf('      const g_chunkAssembly',start);
     const assembled='return combined.buffer;';

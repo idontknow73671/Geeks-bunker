@@ -13,6 +13,9 @@ The tested repairs are a set:
 - `libclient.so`: restore `C_BaseFlex::SetupWeights` and its adjusting thunk;
   the compiled upstream bodies only zero the output. Reuse the existing scene,
   viseme, controller and flex-rule functions. See `hl2-flex.wat`.
+  `DrawMonitors` also skips absent local players during teardown/restore and
+  restores the active-camera predicate, so inactive cameras cannot overwrite
+  the shared feed. See `hl2-monitor-views.wat`.
 - `libstudiorender.so`: `CStudioRender::DrawModel` clears the `bFlex` bit
   unconditionally immediately after its legitimate `DRAW_NO_FLEXES` condition.
   Change that second mask from `0xffbf` to `0xffff` (one byte), preserving the
@@ -49,3 +52,12 @@ and `assets/hl2/models/gman_high.mdl`, plus the extracted character files in
 `npc-assets/hl2/models/` for the character coverage test. Tests validate hashes, WASM validity,
 idempotence, unchanged linking/custom sections, changed body counts, model eye fields, malformed layouts, all 19 cached character models, original
 resource URLs and complete-set fallback.
+
+The launcher also repairs a WebGL-only monitor target incompatibility. The
+256×256 camera color target shares a larger backbuffer depth texture upstream;
+WebGL returns `FRAMEBUFFER_INCOMPLETE_DIMENSIONS` (36057), and camera draws fail
+with `INVALID_FRAMEBUFFER_OPERATION` (1286). Before clearing that specific
+incomplete 256×256 target, `gbHl2EnsureMonitorDepth` attaches a private matching
+packed depth/stencil buffer. Complete targets and other sizes are untouched.
+The replacement is reused per framebuffer; normal scene depth testing remains
+active. This correction runs at target clear, not on every draw call.

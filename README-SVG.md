@@ -950,3 +950,27 @@ Verification: 100 tests passed, including timing/order, blocked playback,
 mid-fade/end volume, timer cleanup and real-launcher integration. A local browser
 confirmed automatic startup, the Valve/artwork slideshow, successful music play
 after enabling it, and removal of the overlay into the working game menu.
+
+### HL2 monitors, reload guards, and checkpoint persistence (November 15, 2026)
+
+The camera render target used a 256×256 color image with a larger shared depth
+texture. WebGL rejected the framebuffer (36057), then rejected its draws (1286).
+The scoped runtime adapter now gives that incomplete monitor target a matching
+256×256 depth/stencil buffer before clearing it. Complete targets and unrelated
+sizes keep their existing attachments. Native monitor views also restore the
+active-camera check and skip camera rendering while the local player is absent
+during map teardown/restoration. See `engine-patches/hl2-monitor-views.wat`.
+
+The upstream launcher replaced `FS.syncfs` with a callback that reported success
+without writing to IndexedDB. That override is removed. The real sync function
+now persists the port's existing checkpoint/configuration files to the same
+storage paths and origin. No existing save data is cleared or migrated.
+
+Verification: a clean local launch displayed the security monitor's camera
+feed. A controlled opening-map fixture killed the player, and normal mouse/key
+input reloaded the checkpoint in the existing engine; observed health changed
+100 → 0 → 100 with no crash overlay. Repeated death/reload also completed.
+A native checkpoint and its companion files survived closing the engine tab
+and launching a new instance. These checks cover the tested opening map, not
+every campaign chapter. Fixtures, diagnostic scripts and game binaries remain
+outside this repository.

@@ -29,17 +29,35 @@ export async function repairHalfLife2VertexBuffers(bytes){
  }
  throw Error('HL2 translation library has no code section');
 }
+function hl2RepairMonitorViews(bytes){
+ let offset=8;
+ while(offset<bytes.length){const start=offset,id=bytes[offset++];const [length,payload]=hl2ReadLEB(bytes,offset);offset=payload+length;if(id!==10)continue;
+  let [count,cursor]=hl2ReadLEB(bytes,payload);const bodies=[];
+  for(let i=0;i<count;i++){const [size,p]=hl2ReadLEB(bytes,cursor);let body=bytes.subarray(p,p+size);cursor=p+size;
+   if(i===8779){
+    // DrawMonitors: no camera views during player teardown/restoration.
+    body=hl2ReplaceOnce(body,hl2Hex('210641002107'),hl2Hex('21062006450d0041002107'));
+    // Restore the per-camera IsActive check before rendering to shared _rt_Camera.
+    body=hl2ReplaceOnce(body,hl2Hex('03400240024020022002'),hl2Hex('0340024020022d009c0a450d00024020022002'));
+   }
+   bodies.push(hl2LEB(body.length),body);
+  }
+  const code=hl2Join([hl2LEB(count),...bodies]);return hl2Join([bytes.subarray(0,start),[10],hl2LEB(code.length),code,bytes.subarray(offset)]);
+ }
+ throw Error('HL2 client library has no code section');
+}
 // Restore C_BaseFlex::SetupWeights and its this-adjusting thunk. The upstream
 // stubs only zero the output; the existing controller, scene and viseme routines
 // remain intact. Source for these two replacement bodies: engine-patches/hl2-flex.wat.
 export async function repairHalfLife2Client(bytes) {
     const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('');
-    if(hash==='f0b3abb8b8d7b4415ea632367ce509dfe8b8d1e0613d41789740945bed9ee3f4')return {bytes,applied:true};
+    if(hash==='a544af5433d44fd61b4729bb3c5235fbe44dcb163949a5b22cd56a551025b593')return {bytes,applied:true};
+    if(hash==='f0b3abb8b8d7b4415ea632367ce509dfe8b8d1e0613d41789740945bed9ee3f4')return {bytes:hl2RepairMonitorViews(bytes),applied:true};
     if(hash!=='69f7b3d2722e3c3941f7a2baa72b3f663cf86d67d40467ae6a872fd531787798')return {bytes,applied:false};
     const fromHex=hex=>Uint8Array.from(hex.match(/../g),v=>parseInt(v,16));
     const setup=fromHex('01047f024020002d00c0100d0020002802c810210520054504402000108b0920002802c81021050b2005450d0020052802002106200628028c0241004a044020062006280290026a280208417f46044041002107034020062006280290026a200741146c6a21082008200820082802046a10b20f360208200741016a2207200628028c02480d000b0b0b2000200120022003200410cc0f04402000200120022003200410cd0f0b0b0b');
     const thunk=fromHex('002000417c6a200120022003200410c80f0b');
-    // Only two code bodies and the code-section length change. All other bytes,
+    // Restore the two flex bodies, then repair the monitor-view body. Other bytes,
     // including linking metadata, function indices and storage behavior, survive.
     const replacement=new Uint8Array(2+setup.length+1+thunk.length);
     replacement.set([0xa9,0x01]);replacement.set(setup,2);
@@ -49,7 +67,7 @@ export async function repairHalfLife2Client(bytes) {
     repaired.set(bytes.subarray(0,start));repaired.set(replacement,start);repaired.set(bytes.subarray(end),start+replacement.length);
     let length=7314595+delta;
     for(let offset=56687;offset<56691;offset++){repaired[offset]=(length&127)|(offset<56690?128:0);length>>>=7;}
-    return {bytes:repaired,applied:true};
+    return {bytes:hl2RepairMonitorViews(repaired),applied:true};
 }
 // DrawModel already honors STUDIORENDER_DRAW_NO_FLEXES above this point.
 // The port then clears bFlex again unconditionally; remove only that override.

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {createHash} from 'node:crypto';
 import {repairHalfLife2VertexBuffers,repairHalfLife2Client,repairHalfLife2FacialRendering,repairHalfLife2CharacterLOD,normalizeHalfLife2Model} from '../hl2-native.js';
 import {prepareHalfLife2RuntimeResponse} from '../hl2-startup.js';
-const repairs=[['libtogl.so',repairHalfLife2VertexBuffers,'2050fa8053a873f9765803896db0834ce76344c4272153c3ae565614746557c6'],['libclient.so',repairHalfLife2Client,'f0b3abb8b8d7b4415ea632367ce509dfe8b8d1e0613d41789740945bed9ee3f4'],['libstudiorender.so',repairHalfLife2FacialRendering,'ba10a413401d1bde3025fc6a8e0304f820511ba40aae8bb6aa1c2032568c6a16'],['libengine.so',repairHalfLife2CharacterLOD,'ce66700c251b099d6612c94c155d8db0545517bff7ab2c89f64d6e943387dc67']];
+const repairs=[['libtogl.so',repairHalfLife2VertexBuffers,'2050fa8053a873f9765803896db0834ce76344c4272153c3ae565614746557c6'],['libclient.so',repairHalfLife2Client,'a544af5433d44fd61b4729bb3c5235fbe44dcb163949a5b22cd56a551025b593'],['libstudiorender.so',repairHalfLife2FacialRendering,'ba10a413401d1bde3025fc6a8e0304f820511ba40aae8bb6aa1c2032568c6a16'],['libengine.so',repairHalfLife2CharacterLOD,'ce66700c251b099d6612c94c155d8db0545517bff7ab2c89f64d6e943387dc67']];
 const hash=b=>createHash('sha256').update(b).digest('hex');
 function leb(b,p){let n=0,k=0,c;do{c=b[p++];n|=(c&127)<<k;k+=7;}while(c&128);return[n>>>0,p];}
 function sections(b){const out=[];let p=8;while(p<b.length){const start=p,id=b[p++],[n,q]=leb(b,p);p=q+n;out.push({id,raw:b.slice(start,p),payload:b.slice(q,p)});}return out;}
@@ -22,7 +22,7 @@ for(const[name,repair,expected]of repairs)test('real '+name+' repair preserves e
  const originalSections=sections(bytes),modifiedSections=sections(result.bytes);assert.equal(originalSections.length,modifiedSections.length);
  originalSections.forEach((section,i)=>{assert.equal(section.id,modifiedSections[i].id);if(section.id!==10)assert.deepEqual(section.raw,modifiedSections[i].raw);});
  const originalBodies=bodies(bytes),modifiedBodies=bodies(result.bytes);assert.equal(originalBodies.length,modifiedBodies.length);
- assert.equal(originalBodies.filter((body,i)=>!Buffer.from(body).equals(Buffer.from(modifiedBodies[i]))).length,['libstudiorender.so','libengine.so'].includes(name)?1:2);
+ assert.equal(originalBodies.filter((body,i)=>!Buffer.from(body).equals(Buffer.from(modifiedBodies[i]))).length,name==='libclient.so'?3:['libstudiorender.so','libengine.so'].includes(name)?1:2);
  const again=await repair(result.bytes);assert.equal(again.bytes,result.bytes);assert.equal(again.applied,true);
 });
 test('legacy G-Man adapter only changes its two eye material indices',{skip:!root},async()=>{
@@ -109,4 +109,12 @@ test('eye zero is resolved independently in separate body parts',async()=>{
 });
 test('mesh material references can address skin slots beyond the distinct texture count',async()=>{
  const b=legacyModel({materials:[3,1]}),v=new DataView(b.buffer);v.setInt32(204,2,true);v.setInt32(220,4,true);const out=await normalizeHalfLife2Model('/hl2/models/skins.mdl',b);assert.equal(new DataView(out.buffer).getInt32(692,true),3);
+});
+test('monitor views skip absent players and inactive cameras using real native predicates',{skip:!root},async()=>{
+ const {bytes}=await repairHalfLife2Client(new Uint8Array(fs.readFileSync(root+'/cache/libclient.so'))),body=bodies(bytes)[8779];
+ assert.ok(Buffer.from(body).includes(Buffer.from('21062006450d0041002107','hex')));
+ assert.ok(Buffer.from(body).includes(Buffer.from('0340024020022d009c0a450d00024020022002','hex')));
+ // Execute the real new IsActive load/test; a cleared camera must be skipped.
+ const p=Buffer.from(body).indexOf(Buffer.from('20022d009c0a45','hex')),code=nativeSnippet(3,[...body.slice(p,p+7)]),args=[0,0,128],memory=new Uint8Array(code.m.buffer);
+ for(const active of [0,1]){memory[128+1308]=active;assert.equal(code.f(...args),active?0:1);}
 });
