@@ -159,10 +159,9 @@ function installG8meStorage(identity) {
         window.Module._gd_request_save();
         return true;
     }
-    // Keep the native save files fresh even when the whole browser tab is closed.
-    if (isGeometryDash) setInterval(() => {
-        if (!document.hidden) try { requestNativeSave(); } catch {}
-    },3000);
+    // Let the port schedule its own saves. Forcing another native save every
+    // three seconds interrupts active attempts with serialization/storage work.
+    // Explicit leave/export still requests a save and waits for its commit.
     async function flushNow() {
         if (requestNativeSave()) {
             notify('saving');

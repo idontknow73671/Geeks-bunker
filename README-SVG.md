@@ -235,8 +235,10 @@ intact to preserve existing saves. Completed write transactions update save stat
 closing/reloading a title waits briefly for pending writes and supported FS/IDBFS
 sync. Save status reports unavailable/full storage rather than claiming success.
 
-Geometry Dash (GN Math ID 868) requests native saves every three seconds and
-before leaving. This port writes AppData/CCGameManager.dat and AppData/CCLocalLevels.dat
+Geometry Dash (GN Math ID 868) retains the port's own save scheduling and requests
+a native save before leaving or exporting progress. The former additional
+three-second forced-save timer was removed because it could interrupt active
+attempts with serialization/storage work. This port writes AppData/CCGameManager.dat and AppData/CCLocalLevels.dat
 to IndexedDB but reads them directly from /Resources on startup; the adapter
 corrects those two restore paths without clearing existing records.
 Its WASM save hook queues work on the game loop: the player now
