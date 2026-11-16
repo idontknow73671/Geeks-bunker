@@ -48,7 +48,7 @@
                         const transport = await session(candidate);
                         let healthy=false,lastProbeError;
                         for(const address of ['https://www.gstatic.com/generate_204','https://example.org/']){
-                            try{const response=await transport.request(new URL(address),'GET',null,[],AbortSignal.timeout(10000));await response.body?.cancel();if(response.status>=200&&response.status<400){healthy=true;break;}lastProbeError=new Error('Connection check returned HTTP '+response.status);}
+                            try{const response=await timeout(transport.request(new URL(address),'GET',null,[],AbortSignal.timeout(10000)),10000,'Server connectivity check timed out.');await response.body?.cancel();if(response.status>=200&&response.status<400){healthy=true;break;}lastProbeError=new Error('Connection check returned HTTP '+response.status);}
                             catch(error){lastProbeError=error;}
                         }
                         if(!healthy)throw lastProbeError||new Error('Connection check failed.');
@@ -67,10 +67,18 @@
         const adapter = {
             ready:false,
             async init() { await select(); adapter.ready = true; },
-            async request(url,method,body,headers,signal) {
-                const safe = ['GET','HEAD'].includes(method.toUpperCase());
+            async request(url,method,body,headers,signal,policy={}) {
+                // GD lookups use POST even though they only read public data.
+                // Opt in narrowly; uploads, comments and ordinary forms never replay.
+                const gdRead = policy.retryRead === true && (
+                    (['GET','HEAD','POST'].includes(method.toUpperCase()) &&
+                     ['www.boomlings.com','boomlings.com','www.robtopgames.org','robtopgames.org'].includes(url.hostname) &&
+                     /^\/database\/(?:getGJ(?:Levels21|DailyLevel|Gauntlets21|MapPacks21|Scores20|LevelScores211|LevelScoresPlat|Users20|UserInfo20|Comments21|AccountComments20|SongInfo)|downloadGJLevel(?:21|22))\.php$/.test(url.pathname)) ||
+                    (['GET','HEAD'].includes(method.toUpperCase()) && ['audio.ngfiles.com','geometrydashfiles.b-cdn.net'].includes(url.hostname)));
+                const safe = ['GET','HEAD'].includes(method.toUpperCase()) || gdRead;
+                const limit = gdRead ? Math.min(3,candidates.length) : candidates.length;
                 const attempted = new Set();
-                while (attempted.size < candidates.length) {
+                while (attempted.size < limit) {
                     if (signal?.aborted) throw signal.reason;
                     const selected = current && !attempted.has(current.id) ? current : await select(attempted);
                     attempted.add(selected.id);
@@ -81,7 +89,14 @@
                         const requestSignal = signal && deadline ? AbortSignal.any([signal,deadline.signal]) : signal || deadline?.signal;
                         // Time out stalled headers, not an already-streaming WASM/data download.
                         // The caller's signal still aborts both headers and the response body.
-                        try { return await transport.request(url,method,body,headers,requestSignal); }
+                        try {
+                            const response=await transport.request(url,method,body,headers,requestSignal);
+                            if(gdRead && [403,429,502,503,504].includes(response.status)) {
+                                await response.body?.cancel();
+                                throw new Error('The GD server rejected this connection (HTTP '+response.status+').');
+                            }
+                            return response;
+                        }
                         finally { if(timer!==null)clearTimeout(timer); }
                     } catch (error) {
                         if (signal?.aborted) throw error;
@@ -91,8 +106,9 @@
                         notify(selected.label + ' disconnected. Trying another connection…');
                     }
                 }
-                notify('All p8y connections failed for this website. Try another address or Reconnect.');
-                throw new Error('All p8y connections failed for this website. Try another address or Reconnect.');
+                const message=gdRead?'GD could not respond through the attempted servers. Please try again shortly.':'All p8y connections failed for this website. Try another address or Reconnect.';
+                notify(message);
+                throw new Error(message);
             },
             connect(...args) {
                 if (!current) throw new Error('Reconnect before opening a live connection.');
@@ -202,13 +218,13 @@
         }
         let resourceFrame=null;
         return {
-            async fetch(url, {signal, method='GET', body=null, headers:requestHeaders={}} = {}) {
+            async fetch(url, {signal, method='GET', body=null, headers:requestHeaders={}, retryRead=false} = {}) {
                 method=String(method).toUpperCase();
                 const outgoingHeaders=[...new Headers(requestHeaders).entries()];
                 let target=new URL(url);
                 for(let redirects=0;redirects<=8;redirects++) {
                     if(target.protocol!=='https:')throw new Error('Media requests require HTTPS.');
-                    const result=await transport.request(target,method,body,outgoingHeaders,signal);
+                    const result=await transport.request(target,method,body,outgoingHeaders,signal,{retryRead});
                     const headers=new Headers(result.headers);
                     if([301,302,303,307,308].includes(result.status)&&headers.has('location')) {
                         await result.body?.cancel();

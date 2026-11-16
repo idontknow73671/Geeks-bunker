@@ -1,6 +1,6 @@
 import { prepareHalfLife2Document, fetchHalfLife2Asset, prepareHalfLife2RuntimeResponse } from "./hl2-startup.js";
 import { createG8meDeveloper, withG8meDeveloper } from "./g8me-developer.js";
-import { resolveGdNetworkURL, gdNetworkRoutes, withGdNetwork } from "./g8me-network.js";
+import { resolveGdNetworkURL, gdNetworkRoutes, withGdNetwork, fetchGdThroughRelay } from "./g8me-network.js";
 import { watchG8meStartup, isFivePlayLoader, prepareFivePlayLoader } from "./g8me-startup.js";
 import { createG8meGuard, g8meFrameSandbox } from "./g8me-guard.js";
 import { captureG8meBackup, validateG8meBackup, restoreG8meBackup } from "./g8me-backups.js";
@@ -93,15 +93,8 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         const engine = window.parent.GeekfoxEngine || window.GeekfoxEngine;
         if (!engine) throw new Error('Geekfox is unavailable.');
         const runtime = await engine.startG8mes();
-        for (const route of [...gdNetworkRoutes(target),target]) {
-            options.signal?.throwIfAborted();
-            try {
-                const response=await runtime.fetch(route,options);
-                if(response.ok && !/^\s*(?:<!doctype|<html|<head|<body)/i.test(await response.clone().text())) return response;
-                await response.body?.cancel();
-            } catch(error) { if(options.signal?.aborted) throw error; }
-        }
-        throw new Error('The level services are unavailable.');
+        options.signal?.throwIfAborted();
+        return fetchGdThroughRelay(runtime,target,options);
     };
 
     const developer=createG8meDeveloper({button:document.getElementById('gn-developer-btn'),panel:document.getElementById('gn-developer-panel'),reload:()=>{if(activeGame)openGame(activeGame,null,activeP8y,activeMirror);}});

@@ -8,7 +8,7 @@ import {extraG8mes,g8meP8yURL} from '../gn-math.js';
 const source=fs.readFileSync(process.env.G8ME_TEST_ENGINE || new URL('../geekfox-engine.js',import.meta.url),'utf8');
 function network(behavior,health=()=>Promise.resolve({status:204,body:null})){
  const code=source.slice(source.indexOf('    const connections ='),source.indexOf('    const identities ='));
- class Transport {constructor(options){this.id=options._ind;}async init(){}request(url,method,body,headers,signal){return url.href.endsWith('generate_204')?health(url,signal,this.id):behavior(url,signal,this.id);}}
+ class Transport {constructor(options){this.id=options._ind;}async init(){}request(url,method,body,headers,signal){return url.href.endsWith('generate_204')?health(url,signal,this.id):behavior(url,signal,this.id,method,body,headers);}}
  const quickSignal={timeout:ms=>AbortSignal.timeout(ms===15000?15:ms),any:AbortSignal.any.bind(AbortSignal)};
  const context={URL,AbortController,AbortSignal:quickSignal,DOMException,localStorage:{getItem:()=>null,setItem:()=>{}},setTimeout:(fn,ms)=>setTimeout(fn,ms===15000?15:ms),clearTimeout};
  vm.createContext(context);const helper=source.slice(source.indexOf('    const timeout ='),source.indexOf('    const codec ='));vm.runInContext(helper+code+'\nthis.create=createConnections;',context);return context.create(Transport,()=>{});
@@ -67,3 +67,24 @@ test('a blocked connectivity host does not reject a relay that can fetch other p
 
 test('FivePlay uses its published low-memory startup settings',async()=>{const url=new URL(await g8meP8yURL(extraG8mes()[0]));assert.equal(url.searchParams.get('low'),'1');assert.equal(url.searchParams.get('cores'),'2');assert.equal(url.searchParams.get('res'),'910x570');assert.equal(url.searchParams.get('fps'),'30');assert.equal(url.searchParams.has('log'),false);});
 test('only a confirmed engine crash becomes a startup failure',()=>{assert.match(g8meStartupFailure('The game stopped (rejection): THREAD REJECTION: unreachable'),/unreachable/);for(const text of ['Mounting archives','Game data: 612 MB','No progress for 90 s: device may be out of memory','Low-memory device: close other tabs','Choose Story Mode or Sandbox Mode to continue'])assert.equal(g8meStartupFailure(text),null);});
+
+test('GD read-only POST can switch actual relay servers when its destination rejects an IP',async()=>{
+ const calls=[],body=new Uint8Array([1,2,3]),headers=[['content-type','application/x-www-form-urlencoded']];
+ const net=network(async(url,signal,id,method,data,outgoing)=>{calls.push({id,method,data,outgoing});return {status:calls.length===1?403:200,body:null};});await net.adapter.init();
+ assert.equal((await net.adapter.request(new URL('https://www.boomlings.com/database/getGJLevels21.php'),'POST',body,headers,undefined,{retryRead:true})).status,200);
+ assert.equal(calls.length,2);assert.notEqual(calls[0].id,calls[1].id);
+ for(const call of calls){assert.match(call.id,/^wss:\/\/[^/]+\/wisp\/$/);assert.equal(call.method,'POST');assert.equal(call.data,body);assert.equal(call.outgoing,headers);}
+});
+
+test('GD writes and unrelated POSTs do not gain replay permission from a read-policy flag',async()=>{
+ for(const url of ['https://www.boomlings.com/database/uploadGJLevel21.php','https://example.org/database/getGJLevels21.php']){
+  let calls=0;const net=network(async()=>{calls++;throw Error('lost acknowledgement');});await net.adapter.init();
+  await assert.rejects(()=>net.adapter.request(new URL(url),'POST','payload',[],undefined,{retryRead:true}));assert.equal(calls,1);
+ }
+});
+
+test('GD destination failures have a bounded server retry budget and cancel rejected bodies',async()=>{
+ let calls=0,cancelled=0;const net=network(async()=>{calls++;return {status:503,body:{cancel:async()=>{cancelled++;}}};});await net.adapter.init();
+ await assert.rejects(()=>net.adapter.request(new URL('https://www.boomlings.com/database/downloadGJLevel22.php'),'POST','levelID=123',[],undefined,{retryRead:true}));
+ assert.equal(calls,3);assert.equal(cancelled,3);
+});

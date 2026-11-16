@@ -226,6 +226,46 @@ those pages. Verified independent tabs and bookmark visibility on a new tab.
 
 ## Local g8me progress
 
+### Geometry Dash online routing
+
+GN Math Geometry Dash now tries the official service through Geekfox's direct
+WebSocket relay connection first. P8y frames without access to the dashboard
+callback use their own rewritten fetch for that destination. Dedicated GD API
+backups published by the port remain available, including the four WebDashers
+Worker endpoints and the two existing API bridges. These are compatibility
+fallbacks, not alternate browser frontends.
+
+A successful route is reused per destination host. Failed routes cool down for
+30 seconds, including when the port's own wrapper retries an equivalent URL.
+If all routes fail, the adapter reports the temporary outage rather than
+repeating every timeout again. Response validation reads only the first data,
+then streams level/song bodies immediately; the dashboard no longer reads a
+cloned response to completion. Caller cancellation remains connected until the
+body ends or is cancelled, and SDK operations that ignore cancellation still
+have a bounded connection wait.
+
+Known public GD read endpoints use POST. Only explicitly identified lookups
+and GD asset reads may retry on another relay after a network failure or HTTP
+403/429/502/503/504; the retry budget is three servers. Comments, uploads and
+ordinary form submissions retain the no-replay policy. Save IDs, database
+names and game assets are unchanged.
+
+Known HTTP-formatted and scheme-less GD addresses are upgraded to HTTPS,
+including targets inside nested native `/__proxy?url=...` bridge URLs. Unrelated
+hosts and credential-bearing URLs are rejected. This avoids bypassing the
+adapter for legacy native URL formats while keeping all outgoing requests HTTPS.
+
+Live verification on November 16, 2026: command-line requests received GD HTTP
+403 and backup HTTP 429 responses, which were insufficient to conclude that
+Chrome would fail. A native Chrome Guest test using the production adapter and
+relay-pool code subsequently retrieved 10 featured level records and downloaded
+Flatline (151914229): 1,217,922 response bytes, successfully decompressed into
+7,000,740 characters and 49,487 level objects. Both HTTPS input and the relative
+native bridge containing an HTTP-formatted target passed. These are live browser
+network/protocol checks, not full in-game rendering or Chromebook verification.
+No game save files were changed by that isolated test. Public servers may still
+rate-limit requests; no new owned server was deployed.
+
 GN Math titles receive a stable localStorage namespace based on provider and catalog
 ID. Reloading, changing mirrors, and changing the repository revision do not change
 that namespace when the site origin stays the same. Requested legacy keys are
