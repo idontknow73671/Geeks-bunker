@@ -46,23 +46,78 @@ export function patchGdFramePacing(binary) {
     } catch {return false;}
 }
 
-function installGdFramePacing(patch) {
+export function installGdGraphics(win=window) {
+    if(!win.HTMLCanvasElement||!win.navigator)return;
+    const lowEnd=/CrOS/.test(win.navigator.userAgent)||win.navigator.deviceMemory<=4||win.navigator.hardwareConcurrency<=4;
+    const prototype=win.HTMLCanvasElement.prototype,getContext=prototype.getContext;
+    prototype.getContext=function(type,options){
+        if(this.id!=='canvas'||!/^webgl2?$|^experimental-webgl$/.test(type))return getContext.call(this,type,options);
+        const gl=getContext.call(this,type,{...options,preserveDrawingBuffer:false,antialias:false,powerPreference:'high-performance'});
+        if(!gl||gl.__gbGraphics)return gl;
+        const canvas=this,logicalWidth=canvas.width,logicalHeight=canvas.height;
+        const viewport=gl.viewport.bind(gl),scissor=gl.scissor.bind(gl),parameter=gl.getParameter.bind(gl);
+        let logicalViewport=[0,0,logicalWidth,logicalHeight],logicalScissor=[0,0,logicalWidth,logicalHeight];
+        const screen=()=>!parameter(gl.FRAMEBUFFER_BINDING);
+        const scaled=args=>args.map((value,i)=>Math.round(value*(i%2?canvas.height/logicalHeight:canvas.width/logicalWidth)));
+        gl.viewport=(...args)=>{if(screen()){logicalViewport=args;viewport(...scaled(args));}else viewport(...args);};
+        gl.scissor=(...args)=>{if(screen()){logicalScissor=args;scissor(...scaled(args));}else scissor(...args);};
+        gl.getParameter=name=>name===gl.VIEWPORT&&screen()?new Int32Array(logicalViewport):name===gl.SCISSOR_BOX&&screen()?new Int32Array(logicalScissor):parameter(name);
+        const resize=height=>{
+            // CSS and the engine's logical coordinates remain unchanged. Only
+            // the default framebuffer uses fewer pixels; FBOs keep native sizes.
+            canvas.width=Math.round(logicalWidth*height/logicalHeight);canvas.height=height;
+            if(screen()){viewport(...scaled(logicalViewport));scissor(...scaled(logicalScissor));}
+            gl.__gbGraphics.height=height;
+        };
+        gl.__gbGraphics={height:logicalHeight,logicalWidth,logicalHeight};
+        if(lowEnd&&logicalHeight>540)resize(540);
+        // Native frame count, not browser RAF count: a 60 Hz page can still
+        // present a game running at 10 FPS. Downshift once after sustained load.
+        let lastTime=0,lastFrames=0,slow=0;
+        function sample(time){
+            if(time-lastTime>=2000){
+                const frames=win.__gdGameStarted?win.Module?._gd_frames_get?.():undefined;
+                if(Number.isFinite(frames)){
+                    const fps=(frames-lastFrames)*1000/(time-lastTime);
+                    slow=lastTime&&!win.document.hidden&&fps>0&&fps<35?slow+1:0;
+                    if(slow>=2&&gl.__gbGraphics.height>(lowEnd?360:480)){resize(gl.__gbGraphics.height>480?480:360);slow=0;}
+                    gl.__gbGraphics.fps=fps;lastFrames=frames;
+                }
+                lastTime=time;
+            }
+            win.requestAnimationFrame(sample);
+        }
+        win.requestAnimationFrame(sample);
+        return gl;
+    };
+}
+
+function installGdFramePacing(patch,graphics) {
+    graphics(window);
     let module=window.Module;
     const hooked=new WeakSet();
     function hook(value){
         if(!value || typeof value!=='object' || hooked.has(value))return;
         hooked.add(value);
         let binary=value.wasmBinary;
-        const apply=next=>{value.__gbFramePacing=patch(next)?'browser-paced':'unrecognized-engine';return next;};
+        const apply=next=>{if(next)value.__gbFramePacing=patch(next)?'browser-paced':'unrecognized-engine';return next;};
         Object.defineProperty(value,'wasmBinary',{configurable:true,enumerable:true,get:()=>binary,set:next=>{binary=apply(next);}});
         if(binary)binary=apply(binary);
+        const initialized=value.onRuntimeInitialized;
+        if(initialized)value.onRuntimeInitialized=function(...args){
+            // Compilation and filesystem preload are complete. Drop bootstrap
+            // references instead of retaining the decompressed WASM as well.
+            value.wasmBinary=null;winRelease();value.getPreloadedPackage=null;
+            return initialized.apply(this,args);
+        };
+        function winRelease(){if('wasmBinary' in window)window.wasmBinary=null;}
     }
     Object.defineProperty(window,'Module',{configurable:true,enumerable:true,get:()=>module,set:value=>{module=value;hook(value);}});
     hook(module);
 }
 
 export function withGdFramePacing(html) {
-    const script='<script>('+installGdFramePacing.toString()+')('+patchGdFramePacing.toString()+');</script>';
+    const script='<script>('+installGdFramePacing.toString()+')('+patchGdFramePacing.toString()+','+installGdGraphics.toString()+');</script>';
     const first=html.search(/<script\b/i);
     return first<0?script+html:html.slice(0,first)+script+html.slice(first);
 }

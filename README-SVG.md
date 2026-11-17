@@ -5,7 +5,12 @@ frames. `g8me-performance.js` removes that branch in memory before compilation;
 browser presentation still uses the port's existing frame scheduler. The patch
 checks the entire target function and leaves unfamiliar engine versions alone.
 It applies to direct and p8y launches, without changing the native save format
-or database. Background autosaving remains disabled; leaving for the library
+or database. Chromebook/low-memory rendering starts at 540p internally, with
+adaptive 480p/360p fallback when the native frame counter stays below 35 FPS.
+The image still fills the same viewport with its original aspect ratio and
+logical input coordinates. Offscreen render targets retain their native sizes.
+WebGL frame preservation is disabled, and compiled bootstrap bytes are released
+after startup. Background autosaving remains disabled; leaving for the library
 still waits for an explicit save. Run the real-engine regression checks with
 `GD_ENGINE_FIXTURE=/path/to/gd_web.wasm node --test tests/g8me-performance.test.mjs`.
 
