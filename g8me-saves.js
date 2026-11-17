@@ -1,3 +1,5 @@
+import { withGdFramePacing } from './g8me-performance.js';
+
 /* Runs before the title's scripts so storage keys stay isolated and stable. */
 function installG8meStorage(identity) {
     const prefix = 'gbG8meSave:' + identity.provider + ':' + identity.id + ':';
@@ -283,6 +285,7 @@ function install2048Resume() {
 export function withG8meSaves(html, identity) {
     if((identity.provider||'gn')==='gn' && String(identity.id)==='868') {
         html=html.replace(/\bsetInterval\(\s*requestSave\s*,\s*(?:0x2710|10000)\s*\)/g,'void 0 /* GD saves only on explicit leave/export */');
+        html=withGdFramePacing(html);
     }
     const data = JSON.stringify({provider:identity.provider || 'gn',id:String(identity.id),name:identity.name})
         .replace(/</g,'\\u003c').replace(/>/g,'\\u003e');

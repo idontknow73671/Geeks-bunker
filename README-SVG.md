@@ -1,5 +1,14 @@
 # Geeks Bunker — Dark Liquid Glass edition
 
+Geometry Dash's pinned native engine has a redundant CPU busy-wait between
+frames. `g8me-performance.js` removes that branch in memory before compilation;
+browser presentation still uses the port's existing frame scheduler. The patch
+checks the entire target function and leaves unfamiliar engine versions alone.
+It applies to direct and p8y launches, without changing the native save format
+or database. Background autosaving remains disabled; leaving for the library
+still waits for an explicit save. Run the real-engine regression checks with
+`GD_ENGINE_FIXTURE=/path/to/gd_web.wasm node --test tests/g8me-performance.test.mjs`.
+
 Current build: publish `index.svg` and generated `geekfox-worker-corp-v2.js`.
 `build-svg.py` generates that worker from `geekfox-worker.js`. Keep the unversioned
 worker for older cached builds. The versioned filename avoids stale CDN copies.
