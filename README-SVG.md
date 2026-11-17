@@ -1038,3 +1038,18 @@ A native checkpoint and its companion files survived closing the engine tab
 and launching a new instance. These checks cover the tested opening map, not
 every campaign chapter. Fixtures, diagnostic scripts and game binaries remain
 outside this repository.
+
+### Geometry Dash level-server p8y fallbacks (November 17, 2026)
+
+The host network bridge now carries both official GD requests and recognized
+backup service requests through Geekfox. Previously the initial request used
+p8y, but retries contacted backup services directly from the browser. Backup
+URLs retain their destination through the host callback rather than being
+normalized back to the failed official endpoint. Level POST bodies, streamed
+songs, cancellation, route cooldowns, and the no-replay rule for uploads/comments
+remain intact. Existing g8me storage and save identity are unchanged.
+
+Automated integration coverage rejects any direct backup request and verifies
+that failed official level/song requests reach a backup through the runtime
+with their method and bytes preserved. School-network filtering itself cannot
+be reproduced by these local tests.

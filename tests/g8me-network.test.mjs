@@ -17,9 +17,9 @@ test('known level routes normalize without permitting unrelated hosts',()=>{
  for(const url of ['http://evil.com/database/x.php','https://evil.com/database/x.php','https://gd-proxy.webdashers.workers.dev/other','https://api.ixl.college/?b=https://evil.com/'])assert.equal(resolveGdNetworkURL(url),null);
 });
 test('uploaded levels preserve POST data and accept correctly formed data labelled text/html',async()=>{
- const calls=[];const fetch=network(async(url,init)=>{calls.push({url,method:init.method,body:new TextDecoder().decode(init.body)});return new Response('1:123:2:Uploaded level',{headers:{'content-type':'text/html'}});});
+ const calls=[];const fetch=network(async()=>{throw Error('direct request');},async(url,init)=>{calls.push({url,method:init.method,body:new TextDecoder().decode(init.body)});return new Response('1:123:2:Uploaded level',{headers:{'content-type':'text/html'}});});
  assert.match(await (await fetch('https://gd-proxy.webdashers.workers.dev/getGJLevels21.php',{method:'POST',body:'type=6&secret=test'})).text(),/^1:123/);
- assert.equal(calls.length,1);assert.equal(calls[0].url,gdNetworkRoutes('https://www.boomlings.com/database/getGJLevels21.php')[0]);assert.equal(calls[0].method,'POST');assert.equal(calls[0].body,'type=6&secret=test');
+ assert.equal(calls.length,1);assert.equal(calls[0].url,'https://www.boomlings.com/database/getGJLevels21.php');assert.equal(calls[0].method,'POST');assert.equal(calls[0].body,'type=6&secret=test');
 });
 test('official GD server is requested through the relay before HTTP bridges',async()=>{
  let calls=0,relayCalls=0;
@@ -65,12 +65,12 @@ test('official direct-source updates retain the previous p8y save origin',async(
 test('the real WASM relative bridge URL works inside an about:srcdoc frame',async()=>{
  const relative='/__proxy?url='+encodeURIComponent('https://www.boomlings.com/database/getGJLevels21.php');
  assert.equal(resolveGdNetworkURL(relative),'https://www.boomlings.com/database/getGJLevels21.php');
- const fetch=network(async(url,options)=>{assert.match(url,/gd-proxy\.webdashers\.workers\.dev/);assert.equal(new TextDecoder().decode(options.body),'type=6');return new Response('1:123:2:Featured');});
+ const fetch=network(async()=>{throw Error('direct request');},async(url,options)=>{assert.equal(url,'https://www.boomlings.com/database/getGJLevels21.php');assert.equal(new TextDecoder().decode(options.body),'type=6');return new Response('1:123:2:Featured');});
  assert.equal(await (await fetch(relative,{method:'POST',body:'type=6'})).text(),'1:123:2:Featured');
 });
 
 test('large level downloads return headers and first bytes before the whole body finishes',async()=>{
- let finish;const fetch=network(async()=>new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode('1:123:2:Level:4:'));finish=()=>{c.enqueue(new TextEncoder().encode('remaining-data'));c.close();};}})));
+ let finish;const fetch=network(async()=>{throw Error('direct request');},async()=>new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode('1:123:2:Level:4:'));finish=()=>{c.enqueue(new TextEncoder().encode('remaining-data'));c.close();};}})));
  const response=await fetch('/__proxy?url='+encodeURIComponent('https://www.boomlings.com/database/downloadGJLevel22.php'),{method:'POST',body:'levelID=123'});
  const reader=response.body.getReader();assert.match(new TextDecoder().decode((await reader.read()).value),/^1:123/);finish();assert.equal(new TextDecoder().decode((await reader.read()).value),'remaining-data');assert.equal((await reader.read()).done,true);
 });
@@ -86,7 +86,7 @@ test('custom songs and SFX retain their upstream media routes',()=>{
 
 test('failed relay/quota routes cool down and the successful backup is reused',async()=>{
  const calls=[],target='https://www.boomlings.com/database/getGJLevels21.php';
- const fetch=network(async url=>{calls.push(url);return url.includes('gd-proxy.webdashers')?new Response('quota',{status:429}):new Response('1:456:2:Online');},async url=>{calls.push(url);return new Response('denied',{status:403});});
+ const fetch=network(async()=>{throw Error('direct request');},async url=>{calls.push(url);return url===target?new Response('denied',{status:403}):url.includes('gd-proxy.webdashers')?new Response('quota',{status:429}):new Response('1:456:2:Online');});
  for(let i=0;i<2;i++)assert.match(await (await fetch(target,{method:'POST',body:'type=6'})).text(),/^1:456/);
  assert.deepEqual(calls,[target,...gdNetworkRoutes(target).slice(0,2),gdNetworkRoutes(target)[1]]);
 });
@@ -115,13 +115,13 @@ test('caller abort still cancels body downloads after response headers arrive',a
 
 test('a stalled SDK/bootstrap that ignores cancellation still has a connection deadline',async()=>{
  let relay=0;
- const fetch=network(async()=>new Response('1:789:2:Recovered'),async()=>{relay++;return new Promise(()=>{});},{setTimeout:(fn,ms)=>setTimeout(fn,ms===15000?10:ms)});
- assert.match(await (await fetch('https://www.boomlings.com/database/getGJLevels21.php',{method:'POST'})).text(),/^1:789/);assert.equal(relay,1);
+ const fetch=network(async()=>{throw Error('direct request');},async()=>{relay++;return relay===1?new Promise(()=>{}):new Response('1:789:2:Recovered');},{setTimeout:(fn,ms)=>setTimeout(fn,ms===15000?10:ms)});
+ assert.match(await (await fetch('https://www.boomlings.com/database/getGJLevels21.php',{method:'POST'})).text(),/^1:789/);assert.equal(relay,2);
 });
 
 test('split whitespace/HTML error pages are cancelled before choosing another route',async()=>{
  let cancelled=false;
- const fetch=network(async()=>new Response('1:321:2:Recovered'),async()=>new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode('  '));c.enqueue(new TextEncoder().encode('<'));},cancel(){cancelled=true;}})));
+ let attempts=0;const fetch=network(async()=>{throw Error('direct request');},async()=>++attempts>1?new Response('1:321:2:Recovered'):new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode('  '));c.enqueue(new TextEncoder().encode('<'));},cancel(){cancelled=true;}})));
  assert.match(await (await fetch('https://www.boomlings.com/database/getGJLevels21.php',{method:'POST'})).text(),/^1:321/);assert.equal(cancelled,true);
 });
 
@@ -157,4 +157,28 @@ test('actual native relative bridge requests with HTTP targets reach the relay a
  let seen;const fetch=network(async()=>{throw Error('wrong route');},async(url,options)=>{seen={url,body:new TextDecoder().decode(options.body)};return new Response('1:123:2:Online');});
  const response=await fetch('/__proxy?url='+encodeURIComponent('http://www.boomlings.com/database/getGJLevels21.php'),{method:'POST',body:'type=6&secret=test'});
  assert.match(await response.text(),/^1:123/);assert.deepEqual(seen,{url:'https://www.boomlings.com/database/getGJLevels21.php',body:'type=6&secret=test'});
+});
+
+
+test('all fallback level and audio routes stay on p8y and retain their actual destination',async()=>{
+ for(const target of ['https://www.boomlings.com/database/getGJLevels21.php','https://audio.ngfiles.com/123/song.mp3']) {
+  const calls=[],method=target.includes('.php')?'POST':'GET',body=method==='POST'?'type=6&secret=test':undefined;
+  const runtime={fetch:async(url,options)=>{calls.push({url,options});return new Response(calls.length===1?'blocked':'1:123:2:Recovered',{status:calls.length===1?403:200});}};
+  const fetch=network(async()=>{throw Error('GD must not contact a backup directly');},(url,options)=>fetchGdThroughRelay(runtime,url,options));
+  assert.match(await(await fetch(target,{method,body})).text(),/^1:123/);
+  assert.deepEqual(calls.map(c=>c.url),[target,gdNetworkRoutes(target)[0]]);
+  assert.equal(calls[1].options.method,method);assert.equal(calls[1].options.retryRead,true);
+  if(body)assert.equal(new TextDecoder().decode(calls[1].options.body),body);
+ }
+});
+
+test('the actual dashboard callback preserves a backup URL through to Geekfox',async()=>{
+ const fs=await import('node:fs'),source=fs.readFileSync(new URL('../gn-math.js',import.meta.url),'utf8');
+ const callback=source.match(/window\.__gbGdNetworkFetch = ([\s\S]*?);\n\n/)[1];
+ let seen;const runtime={fetch:async(url)=>{seen=url;return new Response('1:123:2:Online');}};
+ const context={window:{parent:{GeekfoxEngine:{startG8mes:async()=>runtime}}},resolveGdNetworkURL,fetchGdThroughRelay};
+ vm.createContext(context);vm.runInContext('this.callback='+callback,context);
+ const route=gdNetworkRoutes('https://www.boomlings.com/database/getGJLevels21.php')[0];
+ await context.callback(route,{method:'POST'});assert.equal(seen,route);
+ await assert.rejects(()=>context.callback('https://unrelated.example/',{}),/Unsupported/);
 });

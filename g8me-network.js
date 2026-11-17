@@ -57,7 +57,10 @@ export async function fetchGdThroughRelay(runtime,url,options={}) {
     if(!target)throw new Error('Unsupported level service.');
     // Stream the official destination through the relay. Reading a cloned body
     // here used to buffer whole levels/songs before the game saw their headers.
-    return runtime.fetch(target,{...options,retryRead:isGdReadRequest(target,options.method||'GET')});
+    // Preserve a recognized backup endpoint instead of normalizing it back to
+    // the official server. Both destinations travel through the same p8y relay.
+    const destination=gdNetworkRoutes(target).includes(String(url))?String(url):target;
+    return runtime.fetch(destination,{...options,retryRead:isGdReadRequest(target,options.method||'GET')});
 }
 
 function installGdNetwork(resolve, routes, isRead) {
@@ -94,7 +97,7 @@ function installGdNetwork(resolve, routes, isRead) {
             const choices=[];
             if(relayFetch)choices.push({key:'relay',run:signal=>relayFetch(target,{...options,signal})});
             else choices.push({key:'direct',run:signal=>original(target,{...options,signal})});
-            if(readOnly)for(const route of routes(target))choices.push({key:new URL(route).origin,run:signal=>original(route,{...options,signal})});
+            if(readOnly)for(const route of routes(target))choices.push({key:new URL(route).origin,run:signal=>relayFetch?relayFetch(route,{...options,signal}):original(route,{...options,signal})});
             const key=choice=>host+'|'+choice.key;
             const healthy=choices.filter(choice=>(failed.get(key(choice))||0)<=Date.now());
             // Keep a successful route and briefly cool down failures, rather

@@ -94,7 +94,7 @@ export function initializeGnMath({ rebuildButtons, onOpen, onClose, playSound = 
         if (!engine) throw new Error('Geekfox is unavailable.');
         const runtime = await engine.startG8mes();
         options.signal?.throwIfAborted();
-        return fetchGdThroughRelay(runtime,target,options);
+        return fetchGdThroughRelay(runtime,url,options);
     };
 
     const developer=createG8meDeveloper({button:document.getElementById('gn-developer-btn'),panel:document.getElementById('gn-developer-panel'),reload:()=>{if(activeGame)openGame(activeGame,null,activeP8y,activeMirror);}});
