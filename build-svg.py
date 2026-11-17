@@ -85,8 +85,6 @@ def build():
     display = (ROOT / 'g8me-display.js').read_text(encoding='utf-8').replace('export function ', 'function ')
     gn_math = gn_math.replace('import { attachG8meDisplay } from "./g8me-display.js";', display)
     saves = (ROOT / 'g8me-saves.js').read_text(encoding='utf-8').replace('export function ', 'function ').replace('export async function ', 'async function ')
-    performance = (ROOT / 'g8me-performance.js').read_text(encoding='utf-8').replace('export function ', 'function ')
-    saves = saves.replace("import { withGdFramePacing } from './g8me-performance.js';", performance)
     gn_math = gn_math.replace('import { withG8meSaves, flushG8meFrame } from "./g8me-saves.js";', saves)
     gn_math = gn_math.replace('import { loadLuminCatalog, loadLuminCover, resolveLuminGame } from "./lumin.js";', '')
     lumin = (ROOT / 'lumin.js').read_text(encoding='utf-8').replace('export async function ', 'async function ')

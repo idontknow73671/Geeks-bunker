@@ -1,18 +1,11 @@
 # Geeks Bunker — Dark Liquid Glass edition
 
-Geometry Dash's pinned native engine has a redundant CPU busy-wait between
-frames. `g8me-performance.js` removes that branch in memory before compilation;
-browser presentation still uses the port's existing frame scheduler. The patch
-checks the entire target function and leaves unfamiliar engine versions alone.
-It applies to direct and p8y launches, without changing the native save format
-or database. Chromebook/low-memory rendering starts at 540p internally, with
-adaptive 480p/360p fallback when the native frame counter stays below 35 FPS.
-The image still fills the same viewport with its original aspect ratio and
-logical input coordinates. Offscreen render targets retain their native sizes.
-WebGL frame preservation is disabled, and compiled bootstrap bytes are released
-after startup. Background autosaving remains disabled; leaving for the library
-still waits for an explicit save. Run the real-engine regression checks with
-`GD_ENGINE_FIXTURE=/path/to/gd_web.wasm node --test tests/g8me-performance.test.mjs`.
+Developer capture preferences are per title. A legacy HL2 capture setting does
+not enable console/network hooks in Geometry Dash or other titles. Hidden
+consoles keep a bounded log buffer but do no DOM rendering or timestamp formatting.
+GD uses the unmodified provider engine and native rendering resolution; previous
+experimental frame-wait and graphics patches have been removed. Save-on-leave
+and online-level routing retain their existing storage identities.
 
 Current build: publish `index.svg` and generated `geekfox-worker-corp-v2.js`.
 `build-svg.py` generates that worker from `geekfox-worker.js`. Keep the unversioned

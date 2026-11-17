@@ -47,19 +47,29 @@ export function withG8meDeveloper(html,enabled) {
     return first<0?script+html:html.slice(0,first)+script+html.slice(first);
 }
 
+export function g8meCaptureKey(game){return 'gbG8meDeveloper:'+String(game.provider||'web')+':'+String(game.id);}
+export function g8meCaptureEnabled(game,storage){
+    try{
+        const saved=storage.getItem(g8meCaptureKey(game));
+        // The old global flag was commonly enabled for HL2 diagnostics. Do
+        // not silently inject its capture hooks into every other title.
+        return saved===null?game.id==='half-life-2'&&storage.getItem('gbG8meDeveloper')==='on':saved==='on';
+    }catch{return false;}
+}
+
 export function createG8meDeveloper({button,panel,reload}) {
-    let enabled=false,paused=false,frame=null,rows=[],download=null,seen=new Set();
-    try{enabled=localStorage.getItem('gbG8meDeveloper')==='on';}catch{}
+    let enabled=false,paused=false,frame=null,rows=[],download=null,seen=new Set(),game=null;
+    const clock=new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit',second:'2-digit'});
     panel.innerHTML='<div class="gn-dev-controls"><strong>Developer console</strong><label><input type="checkbox" data-dev="enabled"> Capture logs</label><label><input type="checkbox" data-dev="pause"> Pause display</label><select data-dev="level" aria-label="Log level"><option value="all">All levels</option><option value="error">Errors</option><option value="warn">Warnings</option><option value="network">Network</option><option value="console">Console</option></select><input data-dev="search" type="search" placeholder="Filter logs" aria-label="Filter logs"><button data-dev="clear" class="button">Clear</button><button data-dev="export" class="button">Export logs</button><button data-dev="reload" class="button">Reload g8me</button><a data-dev="download" class="hidden" download="g8me-console.txt">Save log file</a></div><p data-dev="status" role="status"></p><p class="gn-dev-note">Enabling capture reloads the g8me after saving. Logs stay in this tab; review them before sharing. Cross-origin frames and worker-internal logs may be unavailable.</p><pre data-dev="output" tabindex="0" aria-label="G8me console logs"></pre>';
     const $=name=>panel.querySelector('[data-dev="'+name+'"]');$('enabled').checked=enabled;
-    function paint(){const level=$('level').value,query=$('search').value.toLowerCase();const visible=rows.filter(row=>(level==='all'||row.level===level||(level==='console'&&['log','info','debug','warn','error'].includes(row.level)))&&row.text.toLowerCase().includes(query));const output=$('output'),bottom=output.scrollHeight-output.scrollTop-output.clientHeight<40;output.textContent=visible.map(row=>'['+new Date(row.time).toLocaleTimeString()+'] '+row.level.toUpperCase()+' '+row.text).join('\n');if(bottom)output.scrollTop=output.scrollHeight;}
+    function paint(){if(panel.classList.contains('hidden'))return;const level=$('level').value,query=$('search').value.toLowerCase();const visible=rows.filter(row=>(level==='all'||row.level===level||(level==='console'&&['log','info','debug','warn','error'].includes(row.level)))&&row.text.toLowerCase().includes(query));const output=$('output'),bottom=output.scrollHeight-output.scrollTop-output.clientHeight<40;output.textContent=visible.map(row=>'['+(row.clock??=clock.format(row.time))+'] '+row.level.toUpperCase()+' '+row.text).join('\n');if(bottom)output.scrollTop=output.scrollHeight;}
     let pending=false;
-    function record(level,text,time=Date.now()){rows.push({level,text:String(text).slice(0,6000),time});if(rows.length>300)rows.splice(0,rows.length-300);if(!paused&&!pending){pending=true;requestAnimationFrame(()=>{pending=false;paint();});}}
-    function reset(game,mode){frame=null;rows=[];seen.clear();paint();$('status').textContent=enabled?'Waiting for capture connection…':'Capture is off.';record('system',game.name+' · '+mode+' · host viewport '+innerWidth+'×'+innerHeight);}
+    function record(level,text,time=Date.now()){rows.push({level,text:String(text).slice(0,6000),time});if(rows.length>300)rows.splice(0,rows.length-300);if(!paused&&!pending&&!panel.classList.contains('hidden')){pending=true;requestAnimationFrame(()=>{pending=false;paint();});}}
+    function reset(title,mode){game=title;try{enabled=g8meCaptureEnabled(game,localStorage);}catch{enabled=false;}$('enabled').checked=enabled;frame=null;rows=[];seen.clear();paint();$('status').textContent=enabled?'Waiting for capture connection…':'Capture is off.';record('system',game.name+' · '+mode+' · host viewport '+innerWidth+'×'+innerHeight);}
     const receive=event=>{const data=event.data;if(!enabled||event.source!==frame?.contentWindow||data?.type!=='gb-g8me-console'||!['log','info','debug','warn','error','network','system'].includes(data.level)||typeof data.text!=='string')return;if(typeof data.id==='string'){if(seen.has(data.id))return;seen.add(data.id);if(seen.size>600)seen.delete(seen.values().next().value);}if(data.level==='system')$('status').textContent='Capture connected · latest 300 entries';record(data.level,data.text,Number.isFinite(data.time)&&Math.abs(data.time-Date.now())<86400000?data.time:Date.now());};
     window.addEventListener('message',receive);
     button.addEventListener('click',()=>{panel.classList.toggle('hidden');button.setAttribute('aria-expanded',String(!panel.classList.contains('hidden')));if(!panel.classList.contains('hidden'))paint();});
-    $('enabled').addEventListener('change',()=>{enabled=$('enabled').checked;try{localStorage.setItem('gbG8meDeveloper',enabled?'on':'off');}catch{}reload();});
+    $('enabled').addEventListener('change',()=>{enabled=$('enabled').checked;try{if(game)localStorage.setItem(g8meCaptureKey(game),enabled?'on':'off');}catch{}reload();});
     $('pause').addEventListener('change',()=>{paused=$('pause').checked;if(!paused)paint();});
     $('level').addEventListener('change',paint);$('search').addEventListener('input',paint);
     $('clear').onclick=()=>{rows=[];paint();};$('reload').onclick=reload;
