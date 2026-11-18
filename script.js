@@ -1,3 +1,4 @@
+import { initializeHtmlSvg } from "./html-svg.js";
 import { initializeMedia } from "./media.js";
 import { initializeYourGeek } from "./yourgeek.js";
 import { loadBackgrounds, saveBackgrounds, prepareBackground } from "./appearance.js";
@@ -268,7 +269,7 @@ $('personalize-dialog').addEventListener('cancel', event => { event.preventDefau
 $('display-name-input').addEventListener('input', () => { draft.name = $('display-name-input').value.trim() || 'Player'; applyProfile(draft); });
 for (const id of ['profile-btn','home-personalize','settings-personalize']) $(id).addEventListener('click', personalize);
 function showView(name) {
-    if (!['home','g8mes','links','p8y','ai','music','movies','settings','credits'].includes(name)) name = 'home';
+    if (!['home','g8mes','links','p8y','ai','music','movies','converter','settings','credits'].includes(name)) name = 'home';
     const changed = route !== name;
     route = name;
     document.querySelectorAll('main>.page').forEach(page => page.classList.toggle('hidden', page.id !== `view-${name}`));
@@ -451,3 +452,5 @@ $('terms-dialog').addEventListener('close', () => {
 });
 $('terms-close').addEventListener('click', () => $('terms-dialog').close());
 if (!termsSeen) showTerms(); else if (!profile) personalize();
+
+initializeHtmlSvg();

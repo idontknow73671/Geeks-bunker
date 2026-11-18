@@ -29,6 +29,8 @@ def build():
     html = html.replace('vendor/BLOCKER-LICENSES.txt', 'data:text/plain;base64,' + base64.b64encode((ROOT / 'vendor/BLOCKER-LICENSES.txt').read_bytes()).decode('ascii'))
     css = (ROOT / 'style.css').read_text(encoding='utf-8')
     script = (ROOT / 'script.js').read_text(encoding='utf-8').replace('import { loadLuminCover } from "./lumin.js";', '')
+    converter = (ROOT / 'html-svg.js').read_text(encoding='utf-8').replace('export function ', 'function ')
+    script = script.replace('import { initializeHtmlSvg } from "./html-svg.js";', converter)
     appearance = (ROOT / 'appearance.js').read_text(encoding='utf-8').replace('export async function ', 'async function ')
     script = script.replace('import { loadBackgrounds, saveBackgrounds, prepareBackground } from "./appearance.js";', appearance)
     media = (ROOT / 'media.js').read_text(encoding='utf-8').replace('export function initializeMedia', 'function initializeMedia', 1)
