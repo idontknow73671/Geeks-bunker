@@ -264,7 +264,7 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
         $('geekfox-fullscreen').textContent=expanded?'⛶ Exit fullscreen':'⛶ Fullscreen';
     }
     function exitFullscreen() {
-        $('geekfox-browser').classList.remove('geekfox-expanded');syncFullscreen();
+        $('geekfox-browser').classList.remove('geekfox-expanded','geekfox-page-only');$('geekfox-page-fullscreen-exit').hidden=true;syncFullscreen();
         if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     }
     $('geekfox-fullscreen').addEventListener('click', async () => {
@@ -274,8 +274,15 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
         try { await browser.requestFullscreen(); }
         catch { status('Expanded Geekfox. This browser did not allow device fullscreen; press Escape to exit.'); }
     });
+    $('geekfox-page-fullscreen').addEventListener('click',async()=>{
+        const browser=$('geekfox-browser');
+        browser.classList.add('geekfox-expanded','geekfox-page-only');
+        $('geekfox-page-fullscreen-exit').hidden=false;syncFullscreen();
+        try{await browser.requestFullscreen();}catch{status('Page expanded. Use Exit page fullscreen to return.');}
+    });
+    $('geekfox-page-fullscreen-exit').addEventListener('click',exitFullscreen);
     $('geekfox-exit-fullscreen').addEventListener('click',exitFullscreen);
-    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) {$('geekfox-browser').classList.remove('geekfox-expanded');syncFullscreen();} });
+    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) {$('geekfox-browser').classList.remove('geekfox-expanded','geekfox-page-only');$('geekfox-page-fullscreen-exit').hidden=true;syncFullscreen();} });
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape') exitFullscreen();
         if (document.getElementById('view-p8y').classList.contains('hidden')) return;
