@@ -52,7 +52,13 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
     for(const input of settings.querySelectorAll('[data-pref]')){const key=input.dataset.pref;if(input.type==='checkbox')input.checked=!!prefs[key];else input.value=prefs[key];input.onchange=()=>{prefs[key]=input.type==='checkbox'?input.checked:key==='zoom'?Number(input.value):input.value;write('gbGeekfoxSettings',prefs);apply();};}
     settings.querySelector('[data-export]').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(read('gbGeekfoxBookmarks',[]),null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='geekfox-bookmarks.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
     settings.querySelector('[data-import]').onchange=async e=>{try{const items=JSON.parse(await e.target.files[0].text());if(!Array.isArray(items)||items.length>1000)throw Error('Choose a Geekfox bookmark file.');const saved=read('gbGeekfoxBookmarks',[]);for(const item of items){const u=new URL(item.url);if(!['https:','http:'].includes(u.protocol))throw Error('Bookmarks must use HTTP or HTTPS.');}for(const item of items)if(!saved.some(x=>x.url===item.url))saved.push({url:item.url,title:String(item.title||item.url).slice(0,200)});write('gbGeekfoxBookmarks',saved);settings.querySelector('[data-import-status]').textContent='Bookmarks imported. New tabs show the updated list.';}catch(error){settings.querySelector('[data-import-status]').textContent=error.message;}e.target.value='';};
-    const settingsButton=document.createElement('button');settingsButton.id='geekfox-settings';settingsButton.className='button';settingsButton.textContent='Settings';settingsButton.onclick=()=>openSettings();$('geekfox-personalize').replaceWith(settingsButton);
+    const settingsButton=document.createElement('button');
+    settingsButton.id='geekfox-settings';settingsButton.type='button';
+    settingsButton.className='geekfox-icon';settingsButton.textContent='☰';
+    settingsButton.title='Geekfox settings';settingsButton.setAttribute('aria-label','Geekfox settings');
+    settingsButton.onclick=()=>openSettings();
+    $('geekfox-bookmark').after(settingsButton);
+    $('geekfox-personalize').remove();
     apply();
     const shortcuts = [['Wikipedia','https://www.wikipedia.org/'],['Duck.ai','https://duck.ai/'],['DuckDuckGo','https://duckduckgo.com/'],['GitHub','https://github.com/'],['MDN','https://developer.mozilla.org/']];
     const active = () => tabs.find(tab => tab.id === selected);
