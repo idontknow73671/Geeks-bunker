@@ -266,7 +266,7 @@ function cancelPersonalize() {
 $('setup-cancel').addEventListener('click', cancelPersonalize);
 $('personalize-dialog').addEventListener('cancel', event => { event.preventDefault(); cancelPersonalize(); });
 $('display-name-input').addEventListener('input', () => { draft.name = $('display-name-input').value.trim() || 'Player'; applyProfile(draft); });
-for (const id of ['profile-btn','home-personalize','settings-personalize','geekfox-personalize']) $(id).addEventListener('click', personalize);
+for (const id of ['profile-btn','home-personalize','settings-personalize']) $(id).addEventListener('click', personalize);
 function showView(name) {
     if (!['home','g8mes','links','p8y','ai','music','movies','settings','credits'].includes(name)) name = 'home';
     const changed = route !== name;

@@ -32,6 +32,28 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
         for (const tab of tabs) if (tab.handle) tab.handle.reload();
         status(profileLabels[browserProfile] + ' identification profile applied. Rendering still uses your current browser.');
     });
+    const prefs=Object.assign({search:'duckduckgo',accent:'#80bfff',density:'comfortable',motion:true,shortcuts:true,zoom:100},read('gbGeekfoxSettings',{}));
+    const settings=document.createElement('dialog');settings.className='gf-settings';settings.setAttribute('aria-label','Geekfox settings');
+    settings.innerHTML=`<aside><h2>Geekfox</h2><p>Settings</p><nav aria-label="Settings categories"></nav><button type="button" data-close>Back to browsing</button></aside><main><input type="search" aria-label="Search settings" placeholder="Find a setting"><div data-sections></div></main>`;
+    document.body.append(settings);
+    const sections=settings.querySelector('[data-sections]');
+    function section(name,html){const el=document.createElement('section');el.innerHTML='<h2>'+name+'</h2>'+html;sections.append(el);const b=document.createElement('button');b.textContent=name;b.onclick=()=>{settings.querySelector('input[type=search]').value='';for(const e of sections.children)e.hidden=e!==el;};settings.querySelector('nav').append(b);return el;}
+    section('General',`<label>Address bar search<select data-pref="search"><option value="duckduckgo">DuckDuckGo</option><option value="google">Google</option><option value="bing">Bing</option><option value="brave">Brave</option></select></label><p>Searches and websites open through Geekfox.</p>`);
+    section('Appearance',`<label>Accent color<input type="color" data-pref="accent"></label><label>Toolbar spacing<select data-pref="density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label><label>Interface animations<input type="checkbox" data-pref="motion"></label><label>Show new-tab shortcuts<input type="checkbox" data-pref="shortcuts"></label><label>Page zoom<select data-pref="zoom">${[75,90,100,110,125,150,175,200].map(n=>'<option value="'+n+'">'+n+'%</option>').join('')}</select></label><p>Zoom affects web pages inside Geekfox.</p><button type="button" data-wallpaper>Choose a background</button>`);
+    const connectionSection=section('Connection','<p>Choose a relay and browser identification profile. These profiles do not change your actual rendering engine.</p>');
+    connectionSection.append($('geekfox-connection').closest('.geekfox-connection-row'),$('geekfox-profile').closest('.geekfox-profile-row'));
+    const privacy=section('Privacy & add-ons','<p>Manage the request blocker, dislike counts, installed Firefox packages, and page styles.</p><button type="button" data-addons>Manage blockers and add-ons</button>');
+    section('Bookmarks','<p>Manage your saved website shortcuts.</p><button type="button" data-export>Export bookmarks</button><label>Import bookmarks (Geekfox JSON)<input type="file" data-import accept="application/json,.json"></label><p role="status" data-import-status></p>');
+    settings.querySelector('[data-close]').onclick=()=>settings.close();
+    settings.querySelector('[data-wallpaper]').onclick=()=>{settings.close();onCustomize?.();};
+    privacy.querySelector('[data-addons]').onclick=()=>{settings.close();$('geekfox-addons').click();};
+    settings.querySelector('input[type=search]').oninput=e=>{const q=e.target.value.toLowerCase();for(const el of sections.children)el.hidden=!el.textContent.toLowerCase().includes(q);};
+    const apply=()=>{const shell=$('geekfox-pages');shell.style.setProperty('--gf-accent',prefs.accent);document.documentElement.style.setProperty('--gf-accent',prefs.accent);document.body.classList.toggle('gf-compact',prefs.density==='compact');document.body.classList.toggle('gf-still',!prefs.motion);document.body.classList.toggle('gf-hide-shortcuts',!prefs.shortcuts);for(const tab of tabs)if(tab.frame)tab.frame.style.zoom=String(prefs.zoom/100);};
+    for(const input of settings.querySelectorAll('[data-pref]')){const key=input.dataset.pref;if(input.type==='checkbox')input.checked=!!prefs[key];else input.value=prefs[key];input.onchange=()=>{prefs[key]=input.type==='checkbox'?input.checked:key==='zoom'?Number(input.value):input.value;write('gbGeekfoxSettings',prefs);apply();};}
+    settings.querySelector('[data-export]').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(read('gbGeekfoxBookmarks',[]),null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='geekfox-bookmarks.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+    settings.querySelector('[data-import]').onchange=async e=>{try{const items=JSON.parse(await e.target.files[0].text());if(!Array.isArray(items)||items.length>1000)throw Error('Choose a Geekfox bookmark file.');const saved=read('gbGeekfoxBookmarks',[]);for(const item of items){const u=new URL(item.url);if(!['https:','http:'].includes(u.protocol))throw Error('Bookmarks must use HTTP or HTTPS.');}for(const item of items)if(!saved.some(x=>x.url===item.url))saved.push({url:item.url,title:String(item.title||item.url).slice(0,200)});write('gbGeekfoxBookmarks',saved);settings.querySelector('[data-import-status]').textContent='Bookmarks imported. New tabs show the updated list.';}catch(error){settings.querySelector('[data-import-status]').textContent=error.message;}e.target.value='';};
+    const settingsButton=document.createElement('button');settingsButton.id='geekfox-settings';settingsButton.className='button';settingsButton.textContent='Settings';settingsButton.onclick=()=>settings.showModal();$('geekfox-personalize').replaceWith(settingsButton);
+    apply();
     const shortcuts = [['Wikipedia','https://www.wikipedia.org/'],['Duck.ai','https://duck.ai/'],['DuckDuckGo','https://duckduckgo.com/'],['GitHub','https://github.com/'],['MDN','https://developer.mozilla.org/']];
     const active = () => tabs.find(tab => tab.id === selected);
     function address(value) {
@@ -39,7 +61,7 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
         if (!text) return null;
         const hostWithPort = /^(?:localhost|(?:[\w-]+\.)+[\w-]+):\d+(?:[/?#]|$)/i.test(text);
         if (/^[a-z][a-z\d+.-]*:/i.test(text) && !/^https?:/i.test(text) && !hostWithPort) throw new Error('Use an HTTP or HTTPS address.');
-        const candidate = /^https?:\/\//i.test(text) ? text : /^[^\s/]+\.[^\s]+/.test(text) || /^localhost(?::\d+)?(?:\/|$)/i.test(text) ? 'https://' + text : 'https://duckduckgo.com/?q=' + encodeURIComponent(text);
+        const candidate = /^https?:\/\//i.test(text) ? text : /^[^\s/]+\.[^\s]+/.test(text) || /^localhost(?::\d+)?(?:\/|$)/i.test(text) ? 'https://' + text : ({duckduckgo:'https://duckduckgo.com/?q=',google:'https://www.google.com/search?q=',bing:'https://www.bing.com/search?q=',brave:'https://search.brave.com/search?q='}[prefs.search]||'https://duckduckgo.com/?q=') + encodeURIComponent(text);
         const url = new URL(candidate);
         if (!['http:','https:'].includes(url.protocol)) throw new Error('Use an HTTP or HTTPS address.');
         return url.href;
@@ -168,7 +190,7 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
             await addons.prepare();
             if (!tabs.includes(tab) || request !== tab.busy) return;
             if (!tab.handle) {
-                const frame = document.createElement('iframe'); frame.className = 'geekfox-content'; frame.title = tab.title;
+                const frame = document.createElement('iframe'); frame.style.zoom=String(prefs.zoom/100); frame.className = 'geekfox-content'; frame.title = tab.title;
                 frame.allow = 'fullscreen; autoplay; clipboard-write'; frame.allowFullscreen = true; frame.referrerPolicy = 'no-referrer';
                 tab.frame = frame;
                 tab.panel.replaceChildren(frame);
