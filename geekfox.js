@@ -119,7 +119,8 @@ export function initializeGeekfox({reveal, toast, read, write, onCustomize}) {
         return tab;
     }
     function openSettings(tab=null) {
-        tab ||= tabs.find(item=>item.internal==='settings');
+        const existing=tabs.find(item=>item.internal==='settings');
+        if(existing)tab=existing;
         if(!tab)tab=newTab();
         if(!tab)return;
         tab.busy++;tab.handle?.dispose();tab.handle=null;tab.frame=null;tab.observer?.disconnect();
