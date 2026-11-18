@@ -591,3 +591,5 @@ html { scrollbar-gutter:stable; }
 
 /* Internal preferences page occupies the selected Geekfox tab. */
 .geekfox-tab-page>.gf-settings{display:grid;grid-template-columns:220px minmax(0,1fr);width:100%;height:100%;min-height:450px;max-height:none;border:0;border-radius:0;box-sizing:border-box}.gf-settings[hidden]{display:none!important}.gf-settings aside{overflow:auto}@media(max-width:600px){.geekfox-tab-page>.gf-settings{grid-template-columns:1fr;overflow:auto}}
+
+.geekfox-toolbar-action{flex-shrink:0;white-space:nowrap;padding:8px 11px;font-size:13px;border:1px solid #ffffff30}.geekfox-browser:fullscreen{width:100vw;height:100vh;background:#131820}
